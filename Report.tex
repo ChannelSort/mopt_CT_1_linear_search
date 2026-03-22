@@ -1,0 +1,260 @@
+\documentclass[14pt,a4paper]{extarticle}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage[a4paper,margin=2cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{setspace}
+
+\onehalfspacing
+\graphicspath{{outputs/plots/}}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue
+}
+
+\definecolor{codebg}{RGB}{245,245,245}
+\definecolor{codecomment}{RGB}{0,128,0}
+\definecolor{codekeyword}{RGB}{0,0,180}
+\definecolor{codestring}{RGB}{163,21,21}
+
+\lstdefinestyle{pythonstyle}{
+    language=Python,
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{codekeyword}\bfseries,
+    commentstyle=\color{codecomment},
+    stringstyle=\color{codestring},
+    numbers=left,
+    numberstyle=\tiny,
+    stepnumber=1,
+    numbersep=8pt,
+    showstringspaces=false,
+    breaklines=true,
+    frame=single,
+    tabsize=4
+}
+
+\title{Лабораторная работа \\ Методы одномерного поиска}
+\author{
+    TODO: ФИО студентов \\
+    TODO: Номер группы
+}
+\date{TODO: 2026}
+
+\begin{document}
+
+\begin{titlepage}
+    \begin{center}
+        Министерство науки и высшего образования Российской Федерации \\[0.5cm]
+        TODO: Полное название университета \\[0.5cm]
+        TODO: Название института / факультета / кафедры \\[3cm]
+
+        {\large Отчет по лабораторной работе} \\[0.5cm]
+        {\LARGE \textbf{Методы одномерного поиска}} \\[2cm]
+
+        \begin{flushright}
+            Выполнили: \\[0.2cm]
+            TODO: ФИО, группа \\[0.5cm]
+            Проверил: \\[0.2cm]
+            TODO: ФИО преподавателя
+        \end{flushright}
+
+        \vfill
+        TODO: Город \\[0.2cm]
+        2026
+    \end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Постановка задачи}
+
+Цель работы --- изучить и сравнить методы одномерной оптимизации на различных типах целевых функций.
+
+В рамках лабораторной работы требуется:
+\begin{enumerate}
+    \item Реализовать собственные методы одномерного поиска.
+    \item Протестировать методы на унимодальных и многомодальной функциях.
+    \item Сравнить собственные реализации с библиотечным методом Брента из \texttt{scipy.optimize.minimize\_scalar}.
+    \item Построить таблицы и графики, отражающие зависимость эффективности методов от требуемой точности.
+\end{enumerate}
+
+\section{Используемые модели задач}
+
+\subsection{``Хорошая'' унимодальная функция}
+
+Рассматривалась функция с явно выраженным минимумом:
+\[
+f_1(x) = TODO
+\]
+
+Интервал поиска:
+\[
+[a_1, b_1] = \text{TODO}
+\]
+
+\textbf{Промежуточный вывод.} TODO: кратко описать, почему функция удобна для базового сравнения методов.
+
+\subsection{Унимодальная функция с особенностями поведения}
+
+Рассматривалась унимодальная функция с плато, асимметрией или иными особенностями:
+\[
+f_2(x) = TODO
+\]
+
+Интервал поиска:
+\[
+[a_2, b_2] = \text{TODO}
+\]
+
+\textbf{Промежуточный вывод.} TODO: отметить, какие особенности функции должны повлиять на работу методов.
+
+\subsection{Многомодальная функция}
+
+TODO: добавить после реализации многомодального сценария.
+
+\section{Описание методов оптимизации}
+
+\subsection{Метод пассивного поиска}
+
+TODO: кратко описать идею метода, способ выбора сетки и критерий останова.
+
+\subsection{Метод Брента}
+
+В работе для сравнения использовалась библиотечная реализация метода Брента:
+\begin{center}
+\texttt{scipy.optimize.minimize\_scalar(..., method='brent')}
+\end{center}
+
+TODO: кратко описать преимущества метода Брента как комбинированного подхода.
+
+\subsection{Другие методы}
+
+TODO: после реализации добавить описания:
+\begin{itemize}
+    \item метода дихотомии;
+    \item метода золотого сечения;
+    \item метода Фибоначчи;
+    \item метода парабол.
+\end{itemize}
+
+\section{Структура программной реализации}
+
+Программа реализована на языке Python с использованием объектно-ориентированного подхода. Основные сущности:
+\begin{itemize}
+    \item базовый абстрактный класс целевой функции;
+    \item конкретные модели тестовых функций;
+    \item базовый абстрактный класс оптимизатора;
+    \item классы конкретных методов поиска;
+    \item класс эксперимента для серийного запуска и сбора статистики;
+    \item функции вывода таблиц и построения графиков.
+\end{itemize}
+
+\textbf{Промежуточный вывод.} TODO: кратко описать, почему такая архитектура удобна для расширения командой проекта.
+
+\section{Результаты вычислительных экспериментов}
+
+\subsection{Таблицы результатов}
+
+Для каждой унимодальной функции и каждого метода требуется привести таблицы зависимости количества итераций и числа вычислений функции от точности.
+
+\begin{table}[H]
+    \centering
+    \caption{Пример таблицы результатов для первой функции}
+    \begin{tabular}{|c|c|c|c|c|}
+        \hline
+        № & Метод & $\varepsilon$ & Количество итераций & Количество вычислений функции \\
+        \hline
+        1 & TODO & TODO & TODO & TODO \\
+        \hline
+        2 & TODO & TODO & TODO & TODO \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\textbf{Промежуточный вывод.} TODO: описать, какие методы оказались более экономичными по итерациям и вызовам функции.
+
+\subsection{Графики зависимости эффективности от точности}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{TODO_first_function_metrics.png}
+    \caption{Зависимость числа итераций и числа вычислений функции от точности для первой функции}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{TODO_second_function_metrics.png}
+    \caption{Зависимость числа итераций и числа вычислений функции от точности для второй функции}
+\end{figure}
+
+\textbf{Промежуточный вывод.} TODO: прокомментировать форму графиков и различия в поведении методов.
+
+\subsection{Графики динамики интервала неопределенности}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{TODO_interval_plot_1.png}
+    \caption{Динамика интервала неопределенности для выбранного метода и функции}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{TODO_interval_plot_2.png}
+    \caption{Динамика интервала неопределенности для второго примера}
+\end{figure}
+
+\textbf{Промежуточный вывод.} TODO: отметить характер сужения интервала для разных методов.
+
+\subsection{Сравнение с библиотечным методом Брента}
+
+TODO: добавить сравнительный анализ собственных реализаций и метода Брента на всех функциях.
+
+\textbf{Промежуточный вывод.} TODO: указать, в каких случаях библиотечный метод оказался устойчивее или эффективнее.
+
+\subsection{Многомодальная функция и предварительная разведка}
+
+TODO: после реализации многомодальной функции описать:
+\begin{itemize}
+    \item применение пассивного поиска для грубой оценки интервала;
+    \item запуск активного метода на найденном интервале;
+    \item сравнение с запуском без предварительной разведки.
+\end{itemize}
+
+\textbf{Промежуточный вывод.} TODO: сделать вывод о полезности этапа разведки.
+
+\section{Общий вывод}
+
+TODO: сформулировать общий вывод по лабораторной работе. Рекомендуется отразить:
+\begin{itemize}
+    \item какие методы оказались наиболее точными;
+    \item какие методы потребовали меньше вычислений;
+    \item как свойства целевой функции влияют на эффективность методов;
+    \item чем библиотечный метод отличается от собственных реализаций;
+    \item какие ограничения и особенности были выявлены в ходе экспериментов.
+\end{itemize}
+
+\appendix
+
+\section{Листинг программы}
+
+Ниже приводится основной файл программной реализации.
+
+\lstinputlisting[style=pythonstyle]{lab1_linear_search.py}
+
+\end{document}
