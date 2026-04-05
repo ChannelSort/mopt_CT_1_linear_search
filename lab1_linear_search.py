@@ -86,7 +86,7 @@ class GoodUnimodalFunction(ObjectiveFunction):
 
 class PlateauAsymmetricUnimodalFunction(ObjectiveFunction):
     """
-    A unimodal function with a flat minimum area and asymmetric growth.
+    An unimodal function with a flat minimum area and asymmetric growth.
 
     The minimum is reached on a short plateau around x = 1.5.
     """
@@ -214,10 +214,6 @@ class PassiveSearchOptimizer(Optimizer):
         x_grid = np.linspace(a, b, sample_count)
         y_grid = func.evaluate_many(x_grid)
 
-        # --- Векторизованная история вместо Python-цикла ---
-        running_best_idx = np.minimum.accumulate(
-            np.where(y_grid <= np.minimum.accumulate(y_grid), np.arange(sample_count), sample_count)
-        )
         # argmin нарастающий: на шаге i — индекс лучшей точки среди [0..i]
         running_best_idx = np.array([
             int(np.argmin(y_grid[:i + 1])) for i in range(0, sample_count, max(1, sample_count // 500))
@@ -267,6 +263,7 @@ class BrentOptimizer(Optimizer):
             raise ValueError("Function bounds must satisfy a < b.")
 
         initial_bracket = (a, b)
+        # noinspection PyTypeChecker
         result = minimize_scalar(
             func,
             bracket=initial_bracket,
@@ -316,6 +313,10 @@ def validate_bounds(func: Callable) -> Callable:
 # Унифицированный базовый класс оптимизаторов
 # ==========================================
 
+def _check_convergence(a: float, b: float, eps: float) -> bool:
+    return (b - a) <= eps
+
+
 class IterativeOptimizer(Optimizer, ABC):
     """
     Базовый класс для итеративных алгоритмов сужения интервала.
@@ -345,7 +346,7 @@ class IterativeOptimizer(Optimizer, ABC):
             x_min, f_min = current_x_min, current_f_min
 
             # Унифицированное условие выхода
-            if self._check_convergence(current_a, current_b, eps):
+            if _check_convergence(current_a, current_b, eps):
                 converged = True
                 break
 
@@ -368,9 +369,6 @@ class IterativeOptimizer(Optimizer, ABC):
             message=message,
             history_available=True,
         )
-
-    def _check_convergence(self, a: float, b: float, eps: float) -> bool:
-        return (b - a) <= eps
 
     @abstractmethod
     def _generate_steps(
@@ -423,7 +421,7 @@ class GoldenSectionOptimizer(IterativeOptimizer):
         while True:
             if fc < fd:
                 b, d, fd = d, c, fc
-                c = b - phi * (b - a);
+                c = b - phi * (b - a)
                 fc = func(c)
                 yield a, b, d, fd
             else:
@@ -542,6 +540,68 @@ def temporary_bounds(func: ObjectiveFunction, a: float, b: float):
         func.bounds = original
 
 
+def run_multimodal_strategy(
+        func: ObjectiveFunction,
+        recon_eps: float,
+        active_optimizer: Optimizer,
+        fine_eps: float,
+) -> pd.DataFrame:
+    """
+    Двухэтапная стратегия для многомодальной функции (п. 3 условия лабы).
+
+    1. Пассивный поиск с грубой точностью → [x_recon ± 2h]
+    2. Активный метод на суженом интервале (разведка)
+    3. Активный метод на полном интервале (без разведки)
+    Возвращает DataFrame для сравнения.
+    """
+    recon = PassiveSearchOptimizer(max_evaluations=10_000_000)
+    rows = []
+
+    # --- Разведка ---
+    func.reset_count()
+    recon_result = recon.minimize(func, recon_eps)
+    recon_calls = func.call_count
+
+    # Суженный интервал: x_recon ± 2h, гарантируем вхождение в [a, b]
+    a_orig, b_orig = func.get_bounds()
+    h = (b_orig - a_orig) / recon_result.n_iterations
+    narrow_a = max(a_orig, recon_result.x_min - 2 * h)
+    narrow_b = min(b_orig, recon_result.x_min + 2 * h)
+
+    # --- Активный метод на суженом интервале ---
+    with temporary_bounds(func, narrow_a, narrow_b):
+        func.reset_count()
+        narrow_result = active_optimizer.minimize(func, fine_eps)
+
+    rows.append({
+        "strategy": f"recon(ε={recon_eps:.0e}) + {active_optimizer.name}(ε={fine_eps:.0e})",
+        "recon_calls": recon_calls,
+        "active_calls": narrow_result.n_calls,
+        "total_calls": recon_calls + narrow_result.n_calls,
+        "x_min": narrow_result.x_min,
+        "f_min": narrow_result.f_min,
+        "converged": narrow_result.converged,
+        "note": f"interval narrowed to [{narrow_a:.4f}, {narrow_b:.4f}]",
+    })
+
+    # --- Активный метод на полном интервале (без разведки) ---
+    func.reset_count()
+    blind_result = active_optimizer.minimize(func, fine_eps)
+
+    rows.append({
+        "strategy": f"{active_optimizer.name}(ε={fine_eps:.0e}), no recon",
+        "recon_calls": 0,
+        "active_calls": blind_result.n_calls,
+        "total_calls": blind_result.n_calls,
+        "x_min": blind_result.x_min,
+        "f_min": blind_result.f_min,
+        "converged": blind_result.converged,
+        "note": f"full interval [{a_orig:.4f}, {b_orig:.4f}]",
+    })
+
+    return pd.DataFrame(rows)
+
+
 class OptimizationExperiment:
     """
     Runs all function/method/epsilon combinations and stores structured results.
@@ -563,13 +623,13 @@ class OptimizationExperiment:
         self.tables_dir.mkdir(parents=True, exist_ok=True)
         self.results_data: List[dict] = []
 
-    def run(self, epsilons: List[float]) -> None:
+    def run(self, epsilon_list: List[float]) -> None:
         """Run all experiment combinations and store both successes and TODO rows."""
         self.results_data = []
 
         for func in self.functions:
             for opt in self.optimizers:
-                for eps in epsilons:
+                for eps in epsilon_list:
                     func.reset_count()
 
                     try:
@@ -640,27 +700,27 @@ class OptimizationExperiment:
 
         TODO: adapt the final table layout once the team agrees on the report style.
         """
-        df = self.results_dataframe()
-        if df.empty:
+        result_df = self.results_dataframe()
+        if result_df.empty:
             return pd.DataFrame()
 
         if not include_failed:
-            df = df[df["status"] == "success"].copy()
+            result_df = result_df[result_df["status"] == "success"].copy()
 
-        df = df.sort_values(by=["function", "optimizer", "epsilon"], ascending=[True, True, False]).reset_index(
+        result_df = result_df.sort_values(by=["function", "optimizer", "epsilon"], ascending=[True, True, False]).reset_index(
             drop=True)
         table = pd.DataFrame(
             {
-                "No.": np.arange(1, len(df) + 1),
-                "Function": df["function"],
-                "Optimizer": df["optimizer"],
-                "Epsilon": df["epsilon"],
-                "Iterations": df["iterations"],
-                "Function calls": df["calls"],
-                "x_min": df["x_min"],
-                "f(x_min)": df["f_min"],
-                "Status": df["status"],
-                "Comment": df["message"],
+                "No.": np.arange(1, len(result_df) + 1),
+                "Function": result_df["function"],
+                "Optimizer": result_df["optimizer"],
+                "Epsilon": result_df["epsilon"],
+                "Iterations": result_df["iterations"],
+                "Function calls": result_df["calls"],
+                "x_min": result_df["x_min"],
+                "f(x_min)": result_df["f_min"],
+                "Status": result_df["status"],
+                "Comment": result_df["message"],
             }
         )
         return table
@@ -684,17 +744,17 @@ class OptimizationExperiment:
         """
         Plot epsilon vs iterations and epsilon vs function calls for each function.
         """
-        df = self.results_dataframe()
-        if df.empty:
+        result_df = self.results_dataframe()
+        if result_df.empty:
             return []
 
-        df = df[df["status"] == "success"].copy()
+        result_df = result_df[result_df["status"] == "success"].copy()
         if only_unimodal:
-            df = df[df["is_unimodal"]].copy()
+            result_df = result_df[result_df["is_unimodal"]].copy()
 
         saved_paths: List[Path] = []
-        for function_name in df["function"].unique():
-            df_func = df[df["function"] == function_name].sort_values("epsilon")
+        for function_name in result_df["function"].unique():
+            df_func = result_df[result_df["function"] == function_name].sort_values("epsilon")
             if df_func.empty:
                 continue
 
@@ -757,24 +817,24 @@ class OptimizationExperiment:
         If the selected method does not expose interval history yet, the function
         still generates a placeholder plot with a TODO note.
         """
-        df = self.results_dataframe()
-        if df.empty:
+        result_df = self.results_dataframe()
+        if result_df.empty:
             raise ValueError("No experiment data available.")
 
         mask = (
-                (df["function"] == function_name)
-                & (df["optimizer"] == optimizer_name)
-                & np.isclose(df["epsilon"], eps)
+                (result_df["function"] == function_name)
+                & (result_df["optimizer"] == optimizer_name)
+                & np.isclose(result_df["epsilon"], eps)
         )
-        row = df[mask]
+        row = result_df[mask]
         if row.empty:
             raise ValueError("Requested experiment combination was not found.")
 
-        record = row.iloc[0]
+        row = row.iloc[0]
         fig, ax = plt.subplots(figsize=(10, 6))
 
-        if bool(record["history_available"]) and len(record["history"]) >= 2:
-            history = record["history"]
+        if bool(row["history_available"]) and len(row["history"]) >= 2:
+            history = row["history"]
             iterations = np.arange(len(history))
             lower_bounds = [interval[0] for interval in history]
             upper_bounds = [interval[1] for interval in history]
@@ -818,68 +878,6 @@ class OptimizationExperiment:
         while "__" in cleaned:
             cleaned = cleaned.replace("__", "_")
         return cleaned.strip("_")
-
-    def run_multimodal_strategy(
-            self,
-            func: ObjectiveFunction,
-            recon_eps: float,
-            active_optimizer: Optimizer,
-            fine_eps: float,
-    ) -> pd.DataFrame:
-        """
-        Двухэтапная стратегия для многомодальной функции (п. 3 условия лабы).
-
-        1. Пассивный поиск с грубой точностью → [x_recon ± 2h]
-        2. Активный метод на суженном интервале (разведка)
-        3. Активный метод на полном интервале (без разведки)
-        Возвращает DataFrame для сравнения.
-        """
-        recon = PassiveSearchOptimizer(max_evaluations=10_000_000)
-        rows = []
-
-        # --- Разведка ---
-        func.reset_count()
-        recon_result = recon.minimize(func, recon_eps)
-        recon_calls = func.call_count
-
-        # Суженный интервал: x_recon ± 2h, гарантируем вхождение в [a, b]
-        a_orig, b_orig = func.get_bounds()
-        h = (b_orig - a_orig) / recon_result.n_iterations
-        narrow_a = max(a_orig, recon_result.x_min - 2 * h)
-        narrow_b = min(b_orig, recon_result.x_min + 2 * h)
-
-        # --- Активный метод на суженном интервале ---
-        with temporary_bounds(func, narrow_a, narrow_b):
-            func.reset_count()
-            narrow_result = active_optimizer.minimize(func, fine_eps)
-
-        rows.append({
-            "strategy": f"recon(ε={recon_eps:.0e}) + {active_optimizer.name}(ε={fine_eps:.0e})",
-            "recon_calls": recon_calls,
-            "active_calls": narrow_result.n_calls,
-            "total_calls": recon_calls + narrow_result.n_calls,
-            "x_min": narrow_result.x_min,
-            "f_min": narrow_result.f_min,
-            "converged": narrow_result.converged,
-            "note": f"interval narrowed to [{narrow_a:.4f}, {narrow_b:.4f}]",
-        })
-
-        # --- Активный метод на полном интервале (без разведки) ---
-        func.reset_count()
-        blind_result = active_optimizer.minimize(func, fine_eps)
-
-        rows.append({
-            "strategy": f"{active_optimizer.name}(ε={fine_eps:.0e}), no recon",
-            "recon_calls": 0,
-            "active_calls": blind_result.n_calls,
-            "total_calls": blind_result.n_calls,
-            "x_min": blind_result.x_min,
-            "f_min": blind_result.f_min,
-            "converged": blind_result.converged,
-            "note": f"full interval [{a_orig:.4f}, {b_orig:.4f}]",
-        })
-
-        return pd.DataFrame(rows)
 
 
 # ==========================================
@@ -938,7 +936,7 @@ if __name__ == "__main__":
     active_opt = GoldenSectionOptimizer()  # любой активный
 
     print("\n=== Multimodal strategy: recon + active vs blind ===")
-    strategy_df = experiment.run_multimodal_strategy(
+    strategy_df = run_multimodal_strategy(
         func=multimodal_func,
         recon_eps=1e-1,
         active_optimizer=active_opt,
