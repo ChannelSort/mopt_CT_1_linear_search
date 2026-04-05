@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from functools import wraps
 from pathlib import Path
-from typing import List, Tuple
+from contextlib import contextmanager
+from typing import List, Tuple, Callable, Generator
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,11 +27,11 @@ class ObjectiveFunction(ABC):
     """
 
     def __init__(
-        self,
-        name: str,
-        bounds: Tuple[float, float],
-        is_unimodal: bool = True,
-        true_min: float | None = None,
+            self,
+            name: str,
+            bounds: Tuple[float, float],
+            is_unimodal: bool = True,
+            true_min: float | None = None,
     ) -> None:
         self.name = name
         self.bounds = bounds
@@ -109,40 +111,40 @@ class PlateauAsymmetricUnimodalFunction(ObjectiveFunction):
 
 class SecondSpecialUnimodalFunction(ObjectiveFunction):
     """
-    TODO: implement the second custom unimodal function for the final report.
-
-    Suggested directions:
-    - strong asymmetry without a plateau
-    - sharp minimum next to a nearly flat region
+    f(x) = exp(-x) + |x - 0.5|^1.5
+    Сильная асимметрия, резкий минимум справа.
     """
 
     def __init__(self) -> None:
         super().__init__(
-            name="TODO second special unimodal",
-            bounds=(-1.0, 1.0),
+            name="Second special unimodal",
+            bounds=(-1.0, 2.0),
             is_unimodal=True,
-            true_min=None,
+            true_min=None,  # Можно оценить численно
         )
 
     def _evaluate(self, x: np.ndarray) -> np.ndarray:
-        raise NotImplementedError("TODO: implement the second special unimodal function.")
+        return np.exp(-x) + np.abs(x - 0.5) ** 1.5
 
 
 class MultimodalFunction(ObjectiveFunction):
     """
-    TODO: implement a multimodal test function for the exploration experiment.
+    Модифицированная функция Растригина:
+    f(x) = A + x^2 - A*cos(2*pi*x), A = 10
+    Много локальных минимумов, глобальный в 0.
     """
 
     def __init__(self) -> None:
         super().__init__(
-            name="TODO multimodal function",
-            bounds=(-5.0, 5.0),
+            name="Multimodal Rastrigin",
+            bounds=(-5.12, 5.12),
             is_unimodal=False,
-            true_min=None,
+            true_min=0.0,  # глобальный минимум в x = 0
         )
+        self.A = 10.0
 
     def _evaluate(self, x: np.ndarray) -> np.ndarray:
-        raise NotImplementedError("TODO: implement the multimodal function.")
+        return self.A + x ** 2 - self.A * np.cos(2 * np.pi * x)
 
 
 # ==========================================
@@ -166,7 +168,6 @@ class OptimizationResult:
 # 3. Optimizers
 # ==========================================
 
-
 class Optimizer(ABC):
     """Strategy interface for one-dimensional optimization methods."""
 
@@ -179,69 +180,67 @@ class Optimizer(ABC):
 
 
 class PassiveSearchOptimizer(Optimizer):
-    """
-    Passive search over a uniform grid.
 
-    According to the lecture notes, we split [a, b] into n parts with step
-    h = (b - a) / n and use the estimate x* in [x_k - h, x_k + h]. Therefore,
-    the localization error is controlled by eps ~= 2h, so we choose n from
-    2h <= eps.
-    """
-
-    def __init__(self, max_evaluations: int = 200_000) -> None:
+    def __init__(self, max_evaluations: int = 1_000_000) -> None:  # 10M → 1M
         super().__init__("Passive search")
         self.max_evaluations = max_evaluations
 
+    # В методе minimize — заменить Python-цикл истории на numpy:
     def minimize(self, func: ObjectiveFunction, eps: float) -> OptimizationResult:
         a, b = func.get_bounds()
         if eps <= 0:
             raise ValueError("Epsilon must be positive.")
-
-        interval_length = b - a
-        if interval_length <= 0:
+        if b <= a:
             raise ValueError("Function bounds must satisfy a < b.")
 
-        # From the notes: eps = 2h, h = (b - a) / n.
-        # Hence n >= 2 * (b - a) / eps.
+        interval_length = b - a
         n_segments = max(2, int(np.ceil(2.0 * interval_length / eps)))
         step = interval_length / n_segments
         sample_count = n_segments + 1
 
-        if sample_count > self.max_evaluations:
-            raise ValueError(
-                "Passive search requires too many evaluations for this epsilon. "
-                "TODO: narrow the interval or configure a higher evaluation limit."
+        capped = sample_count > self.max_evaluations
+        if capped:
+            n_segments = self.max_evaluations - 1
+            step = interval_length / n_segments
+            sample_count = self.max_evaluations
+            actual_eps = 2.0 * step
+            message_prefix = (
+                f"WARNING: capped at {self.max_evaluations} evaluations; "
+                f"actual localization width = {actual_eps:.3e} > requested {eps:.3e}. "
             )
+        else:
+            message_prefix = ""
 
         x_grid = np.linspace(a, b, sample_count)
         y_grid = func.evaluate_many(x_grid)
 
-        best_index = 0
-        best_x = float(x_grid[best_index])
-        history: List[Tuple[float, float]] = [
-            (max(a, best_x - step), min(b, best_x + step))
-        ]
+        # --- Векторизованная история вместо Python-цикла ---
+        running_best_idx = np.minimum.accumulate(
+            np.where(y_grid <= np.minimum.accumulate(y_grid), np.arange(sample_count), sample_count)
+        )
+        # argmin нарастающий: на шаге i — индекс лучшей точки среди [0..i]
+        running_best_idx = np.array([
+            int(np.argmin(y_grid[:i + 1])) for i in range(0, sample_count, max(1, sample_count // 500))
+        ])  # прореживаем до 500 точек для истории
+        bx = x_grid[running_best_idx]
+        lower = np.clip(bx - step, a, b)
+        upper = np.clip(bx + step, a, b)
+        history = list(zip(lower.tolist(), upper.tolist()))
+        # ----------------------------------------------------
 
-        for current_index in range(1, sample_count):
-            if y_grid[current_index] < y_grid[best_index]:
-                best_index = current_index
-
-            best_x = float(x_grid[best_index])
-            history.append((max(a, best_x - step), min(b, best_x + step)))
-
-        x_min = float(x_grid[best_index])
-        f_min = float(y_grid[best_index])
+        best_index = int(np.argmin(y_grid))
 
         return OptimizationResult(
-            x_min=x_min,
-            f_min=f_min,
+            x_min=float(x_grid[best_index]),
+            f_min=float(y_grid[best_index]),
             n_iterations=n_segments,
             n_calls=func.call_count,
             history=history,
             converged=True,
             message=(
-                "Grid scan finished successfully. "
-                f"Step h = {step:.3e}, estimated localization width <= {2.0 * step:.3e}."
+                    message_prefix
+                    + f"Grid scan finished. h = {step:.3e}, "
+                      f"localization width <= {2.0 * step:.3e}."
             ),
             history_available=True,
         )
@@ -294,49 +293,253 @@ class BrentOptimizer(Optimizer):
         )
 
 
-class DichotomyOptimizer(Optimizer):
-    """TODO: implement dichotomy search."""
+# ==========================================
+# Декораторы
+# ==========================================
 
-    def __init__(self) -> None:
-        super().__init__("Dichotomy")
+def validate_bounds(func: Callable) -> Callable:
+    """Декоратор для проверки epsilon и границ a < b во всех методах."""
 
+    @wraps(func)
+    def wrapper(self, objective: 'ObjectiveFunction', eps: float, *args, **kwargs) -> OptimizationResult:
+        a, b = objective.get_bounds()
+        if eps <= 0:
+            raise ValueError("Epsilon must be positive.")
+        if a >= b:
+            raise ValueError("Function bounds must satisfy a < b.")
+        return func(self, objective, eps, *args, **kwargs)
+
+    return wrapper
+
+
+# ==========================================
+# Унифицированный базовый класс оптимизаторов
+# ==========================================
+
+class IterativeOptimizer(Optimizer, ABC):
+    """
+    Базовый класс для итеративных алгоритмов сужения интервала.
+    Берет на себя сбор истории, подсчет итераций и проверку сходимости.
+    """
+
+    def __init__(self, name: str, max_iterations: int = 1000) -> None:
+        super().__init__(name)
+        self.max_iterations = max_iterations
+
+    @validate_bounds
     def minimize(self, func: ObjectiveFunction, eps: float) -> OptimizationResult:
-        raise NotImplementedError("TODO: implement dichotomy search.")
+        a, b = func.get_bounds()
+        history: List[Tuple[float, float]] = [(a, b)]
+        iterations = 0
+
+        # Получаем генератор шагов от дочернего класса
+        step_generator = self._generate_steps(func, a, b, eps)
+
+        x_min: float = (a + b) / 2.0
+        f_min: float = float("inf")
+        converged = False
+
+        for current_a, current_b, current_x_min, current_f_min in step_generator:
+            history.append((current_a, current_b))
+            iterations += 1
+            x_min, f_min = current_x_min, current_f_min
+
+            # Унифицированное условие выхода
+            if self._check_convergence(current_a, current_b, eps):
+                converged = True
+                break
+
+            if iterations >= self.max_iterations:
+                break
+
+        message = (
+            f"{self.name} search converged successfully."
+            if converged
+            else f"{self.name} reached maximum iterations before convergence."
+        )
+
+        return OptimizationResult(
+            x_min=float(x_min),
+            f_min=float(f_min),
+            n_iterations=iterations,
+            n_calls=func.call_count,
+            history=history,
+            converged=converged,
+            message=message,
+            history_available=True,
+        )
+
+    def _check_convergence(self, a: float, b: float, eps: float) -> bool:
+        return (b - a) <= eps
+
+    @abstractmethod
+    def _generate_steps(
+            self, func: ObjectiveFunction, a: float, b: float, eps: float
+    ) -> Generator[Tuple[float, float, float, float], None, None]:
+        """
+        Должен возвращать (a, b, x_min_текущий, f_min_текущий) на каждой итерации алгоритма.
+        """
+        pass
 
 
-class GoldenSectionOptimizer(Optimizer):
-    """TODO: implement golden-section search."""
+class DichotomyOptimizer(IterativeOptimizer):
+    def __init__(self, max_iterations: int = 1000) -> None:
+        super().__init__("Dichotomy", max_iterations)
 
-    def __init__(self) -> None:
-        super().__init__("Golden section")
+    def _generate_steps(
+            self, func: ObjectiveFunction, a: float, b: float, eps: float
+    ) -> Generator[Tuple[float, float, float, float], None, None]:
 
-    def minimize(self, func: ObjectiveFunction, eps: float) -> OptimizationResult:
-        raise NotImplementedError("TODO: implement golden-section search.")
+        delta = eps / 10.0
+
+        while True:
+            mid = (a + b) / 2.0
+            x1, x2 = mid - delta, mid + delta
+            f1, f2 = func(x1), func(x2)
+
+            if f1 < f2:
+                b = x2
+                yield a, b, x1, f1
+            else:
+                a = x1
+                yield a, b, x2, f2
 
 
-class FibonacciOptimizer(Optimizer):
-    """TODO: implement Fibonacci search."""
+class GoldenSectionOptimizer(IterativeOptimizer):
+    def __init__(self, max_iterations: int = 1000) -> None:
+        super().__init__("Golden Section", max_iterations)
 
-    def __init__(self) -> None:
-        super().__init__("Fibonacci")
+    def _generate_steps(
+            self, func: ObjectiveFunction, a: float, b: float, eps: float
+    ) -> Generator[Tuple[float, float, float, float], None, None]:
 
-    def minimize(self, func: ObjectiveFunction, eps: float) -> OptimizationResult:
-        raise NotImplementedError("TODO: implement Fibonacci search.")
+        phi = (np.sqrt(5) - 1) / 2.0
+        c = b - phi * (b - a)
+        d = a + phi * (b - a)
+        fc = func(c)
+        fd = func(d)
+
+        # Бесконечный цикл, выход из которого контролирует базовый IterativeOptimizer
+        while True:
+            if fc < fd:
+                b, d, fd = d, c, fc
+                c = b - phi * (b - a);
+                fc = func(c)
+                yield a, b, d, fd
+            else:
+                a, c, fc = c, d, fd
+                d = a + phi * (b - a)
+                fd = func(d)
+                yield a, b, c, fc
 
 
-class ParabolaOptimizer(Optimizer):
-    """TODO: implement parabola-based search."""
+class FibonacciOptimizer(IterativeOptimizer):
+    """Fibonacci search."""
 
-    def __init__(self) -> None:
-        super().__init__("Parabola")
+    def __init__(self, max_iterations: int = 1000) -> None:
+        super().__init__("Fibonacci", max_iterations)
 
-    def minimize(self, func: ObjectiveFunction, eps: float) -> OptimizationResult:
-        raise NotImplementedError("TODO: implement parabola search.")
+    @staticmethod
+    def _fib_sequence_up_to(n: int) -> list[int]:
+        """Generate Fibonacci numbers up to at least n."""
+        fibs = [1, 1]
+        while fibs[-1] < n:
+            fibs.append(fibs[-1] + fibs[-2])
+        return fibs
+
+    def _generate_steps(
+            self, func: ObjectiveFunction, a: float, b: float, eps: float
+    ) -> Generator[Tuple[float, float, float, float], None, None]:
+
+        n_estimate = int(np.ceil((b - a) / eps))
+        fibs = self._fib_sequence_up_to(n_estimate)
+        n = len(fibs) - 1
+        n = min(n, self.max_iterations)
+
+        assert n >= 2, "Fibonacci: недостаточно членов последовательности."
+
+        c = a + (fibs[n - 2] / fibs[n]) * (b - a)
+        d = a + (fibs[n - 1] / fibs[n]) * (b - a)
+        fc = func(c)
+        fd = func(d)
+
+        for k in range(1, n):
+            last_step = (k == n - 1)
+
+            if fc < fd:
+                b, d, fd = d, c, fc
+                if last_step:
+                    c = (a + b) / 2.0 - eps / 10.0
+                else:
+                    c = a + (fibs[n - k - 2] / fibs[n - k]) * (b - a)
+                fc = func(c)
+                yield a, b, c, fc
+            else:
+                a, c, fc = c, d, fd
+                if last_step:
+                    d = (a + b) / 2.0 + eps / 10.0
+                else:
+                    d = a + (fibs[n - k - 1] / fibs[n - k]) * (b - a)
+                fd = func(d)
+                yield a, b, d, fd
+
+
+class ParabolaOptimizer(IterativeOptimizer):
+    """Parabolic interpolation search."""
+
+    def __init__(self, max_iterations: int = 500) -> None:
+        super().__init__("Parabola", max_iterations)
+
+    def _generate_steps(
+            self, func: ObjectiveFunction, a: float, b: float, eps: float
+    ) -> Generator[Tuple[float, float, float, float], None, None]:
+
+        x0, x2 = a, b
+        x1 = (a + b) / 2.0
+        f0, f1, f2 = func(x0), func(x1), func(x2)
+
+        while True:
+            numerator = (x1 - x0) ** 2 * (f1 - f2) - (x1 - x2) ** 2 * (f1 - f0)
+            denominator = 2.0 * ((x1 - x0) * (f1 - f2) - (x1 - x2) * (f1 - f0))
+
+            if abs(denominator) < 1e-12:
+                # Метод нашёл минимум с машинной точностью.
+                # Сигнализируем базовому классу через вырожденный интервал.
+                yield x1 - 1e-15, x1 + 1e-15, x1, f1
+                return
+
+            x_new = x1 - numerator / denominator
+            f_new = func(x_new)
+
+            if x_new < x1:
+                if f_new < f1:
+                    x2, f2 = x1, f1
+                    x1, f1 = x_new, f_new
+                else:
+                    x0, f0 = x_new, f_new
+            else:
+                if f_new < f1:
+                    x0, f0 = x1, f1
+                    x1, f1 = x_new, f_new
+                else:
+                    x2, f2 = x_new, f_new
+
+            yield x0, x2, x_new, f_new
 
 
 # ==========================================
 # 4. Experiment manager
 # ==========================================
+
+@contextmanager
+def temporary_bounds(func: ObjectiveFunction, a: float, b: float):
+    """Временно подменяет интервал функции — безопасно даже при исключениях."""
+    original = func.bounds
+    func.bounds = (a, b)
+    try:
+        yield func
+    finally:
+        func.bounds = original
 
 
 class OptimizationExperiment:
@@ -345,10 +548,10 @@ class OptimizationExperiment:
     """
 
     def __init__(
-        self,
-        optimizers: List[Optimizer],
-        functions: List[ObjectiveFunction],
-        output_dir: str | Path = "outputs",
+            self,
+            optimizers: List[Optimizer],
+            functions: List[ObjectiveFunction],
+            output_dir: str | Path = "outputs",
     ) -> None:
         self.optimizers = optimizers
         self.functions = functions
@@ -444,7 +647,8 @@ class OptimizationExperiment:
         if not include_failed:
             df = df[df["status"] == "success"].copy()
 
-        df = df.sort_values(by=["function", "optimizer", "epsilon"], ascending=[True, True, False]).reset_index(drop=True)
+        df = df.sort_values(by=["function", "optimizer", "epsilon"], ascending=[True, True, False]).reset_index(
+            drop=True)
         table = pd.DataFrame(
             {
                 "No.": np.arange(1, len(df) + 1),
@@ -541,11 +745,11 @@ class OptimizationExperiment:
         return saved_paths
 
     def plot_interval_dynamics(
-        self,
-        function_name: str,
-        optimizer_name: str,
-        eps: float,
-        show: bool = False,
+            self,
+            function_name: str,
+            optimizer_name: str,
+            eps: float,
+            show: bool = False,
     ) -> Path:
         """
         Plot the lower and upper bounds of the uncertainty interval by iteration.
@@ -558,9 +762,9 @@ class OptimizationExperiment:
             raise ValueError("No experiment data available.")
 
         mask = (
-            (df["function"] == function_name)
-            & (df["optimizer"] == optimizer_name)
-            & np.isclose(df["epsilon"], eps)
+                (df["function"] == function_name)
+                & (df["optimizer"] == optimizer_name)
+                & np.isclose(df["epsilon"], eps)
         )
         row = df[mask]
         if row.empty:
@@ -594,7 +798,9 @@ class OptimizationExperiment:
         ax.set_title(f"Interval dynamics: {optimizer_name}, {function_name}, eps={eps:g}")
         ax.grid(True, linestyle="--", alpha=0.5)
         ax.axhline(0.0, color="black", linewidth=0.8)
-        ax.legend(loc="best") if ax.lines else None
+        labeled = [h for h in ax.get_legend_handles_labels()[0]]
+        if labeled:
+            ax.legend(loc="best")
 
         output_path = self.plots_dir / (
             f"{self._slugify(function_name)}_{self._slugify(optimizer_name)}_eps_{self._slugify(str(eps))}.png"
@@ -613,6 +819,68 @@ class OptimizationExperiment:
             cleaned = cleaned.replace("__", "_")
         return cleaned.strip("_")
 
+    def run_multimodal_strategy(
+            self,
+            func: ObjectiveFunction,
+            recon_eps: float,
+            active_optimizer: Optimizer,
+            fine_eps: float,
+    ) -> pd.DataFrame:
+        """
+        Двухэтапная стратегия для многомодальной функции (п. 3 условия лабы).
+
+        1. Пассивный поиск с грубой точностью → [x_recon ± 2h]
+        2. Активный метод на суженном интервале (разведка)
+        3. Активный метод на полном интервале (без разведки)
+        Возвращает DataFrame для сравнения.
+        """
+        recon = PassiveSearchOptimizer(max_evaluations=10_000_000)
+        rows = []
+
+        # --- Разведка ---
+        func.reset_count()
+        recon_result = recon.minimize(func, recon_eps)
+        recon_calls = func.call_count
+
+        # Суженный интервал: x_recon ± 2h, гарантируем вхождение в [a, b]
+        a_orig, b_orig = func.get_bounds()
+        h = (b_orig - a_orig) / recon_result.n_iterations
+        narrow_a = max(a_orig, recon_result.x_min - 2 * h)
+        narrow_b = min(b_orig, recon_result.x_min + 2 * h)
+
+        # --- Активный метод на суженном интервале ---
+        with temporary_bounds(func, narrow_a, narrow_b):
+            func.reset_count()
+            narrow_result = active_optimizer.minimize(func, fine_eps)
+
+        rows.append({
+            "strategy": f"recon(ε={recon_eps:.0e}) + {active_optimizer.name}(ε={fine_eps:.0e})",
+            "recon_calls": recon_calls,
+            "active_calls": narrow_result.n_calls,
+            "total_calls": recon_calls + narrow_result.n_calls,
+            "x_min": narrow_result.x_min,
+            "f_min": narrow_result.f_min,
+            "converged": narrow_result.converged,
+            "note": f"interval narrowed to [{narrow_a:.4f}, {narrow_b:.4f}]",
+        })
+
+        # --- Активный метод на полном интервале (без разведки) ---
+        func.reset_count()
+        blind_result = active_optimizer.minimize(func, fine_eps)
+
+        rows.append({
+            "strategy": f"{active_optimizer.name}(ε={fine_eps:.0e}), no recon",
+            "recon_calls": 0,
+            "active_calls": blind_result.n_calls,
+            "total_calls": blind_result.n_calls,
+            "x_min": blind_result.x_min,
+            "f_min": blind_result.f_min,
+            "converged": blind_result.converged,
+            "note": f"full interval [{a_orig:.4f}, {b_orig:.4f}]",
+        })
+
+        return pd.DataFrame(rows)
+
 
 # ==========================================
 # 5. Demo entry point
@@ -628,17 +896,17 @@ def build_demo_experiment() -> OptimizationExperiment:
     functions: List[ObjectiveFunction] = [
         GoodUnimodalFunction(),
         PlateauAsymmetricUnimodalFunction(),
-        # TODO: add SecondSpecialUnimodalFunction() when implemented.
-        # TODO: add MultimodalFunction() for the exploration experiment.
+        SecondSpecialUnimodalFunction(),
+        MultimodalFunction()
     ]
 
     optimizers: List[Optimizer] = [
         PassiveSearchOptimizer(),
         BrentOptimizer(),
-        # TODO: add DichotomyOptimizer().
-        # TODO: add GoldenSectionOptimizer().
-        # TODO: add FibonacciOptimizer().
-        # TODO: add ParabolaOptimizer().
+        DichotomyOptimizer(),
+        GoldenSectionOptimizer(),
+        FibonacciOptimizer(),
+        ParabolaOptimizer()
     ]
 
     return OptimizationExperiment(optimizers=optimizers, functions=functions)
@@ -649,15 +917,13 @@ if __name__ == "__main__":
 
     # NOTE: passive search is expensive for very small eps on wide intervals.
     # TODO: revisit the final epsilon grid when the full project configuration is fixed.
-    epsilons = [1e-1, 1e-2, 1e-3, 1e-4]
-
+    epsilons = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8]
     experiment.run(epsilons)
     experiment.print_summary_table(include_failed=True)
 
     summary_path = experiment.save_summary_table()
     plot_paths = experiment.plot_metrics(only_unimodal=True, show=False)
 
-    # Build one interval plot per successful run as a ready-to-use example.
     df = experiment.results_dataframe()
     for _, record in df[df["status"] == "success"].iterrows():
         experiment.plot_interval_dynamics(
@@ -667,7 +933,15 @@ if __name__ == "__main__":
             show=False,
         )
 
-    print(f"\nSummary table saved to: {summary_path}")
-    print("Metric plots:")
-    for path in plot_paths:
-        print(f" - {path}")
+    # Демонстрация двухэтапной стратегии для многомодальной функции
+    multimodal_func = MultimodalFunction()
+    active_opt = GoldenSectionOptimizer()  # любой активный
+
+    print("\n=== Multimodal strategy: recon + active vs blind ===")
+    strategy_df = experiment.run_multimodal_strategy(
+        func=multimodal_func,
+        recon_eps=1e-1,
+        active_optimizer=active_opt,
+        fine_eps=1e-6,
+    )
+    print(strategy_df.to_string(index=False))
