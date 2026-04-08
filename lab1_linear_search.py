@@ -112,7 +112,7 @@ class PlateauAsymmetricUnimodalFunction(ObjectiveFunction):
 class SecondSpecialUnimodalFunction(ObjectiveFunction):
     """
     f(x) = exp(-x) + |x - 0.5|^1.5
-    Сильная асимметрия, резкий минимум справа.
+    Strong asymmetry with a sharp minimum on the right.
     """
 
     def __init__(self) -> None:
@@ -129,9 +129,9 @@ class SecondSpecialUnimodalFunction(ObjectiveFunction):
 
 class MultimodalFunction(ObjectiveFunction):
     """
-    Модифицированная функция Растригина:
+    Modified Rastrigin function:
     f(x) = A + x^2 - A*cos(2*pi*x), A = 10
-    Много локальных минимумов, глобальный в 0.
+    Many local minima, global minimum at x = 0.
     """
 
     def __init__(self) -> None:
@@ -215,8 +215,8 @@ class PassiveSearchOptimizer(Optimizer):
         x_grid = np.linspace(a, b, sample_count)
         y_grid = func.evaluate_many(x_grid)
 
-        # Для длинных сеток сохраняем прореженную историю, но оставляем реальные
-        # номера итераций для корректной подписи оси X на графике.
+        # For long grids we keep a downsampled history, but preserve the
+        # original iteration numbers for the x-axis on interval plots.
         stride = max(1, sample_count // 500)
         sampled_iterations = np.arange(0, sample_count, stride, dtype=int)
         if sampled_iterations[-1] != sample_count - 1:
@@ -298,11 +298,11 @@ class BrentOptimizer(Optimizer):
 
 
 # ==========================================
-# Декораторы
+# Decorators
 # ==========================================
 
 def validate_bounds(func: Callable) -> Callable:
-    """Декоратор для проверки epsilon и границ a < b во всех методах."""
+    """Validate epsilon and interval bounds for all methods."""
 
     @wraps(func)
     def wrapper(self, objective: 'ObjectiveFunction', eps: float, *args, **kwargs) -> OptimizationResult:
@@ -317,7 +317,7 @@ def validate_bounds(func: Callable) -> Callable:
 
 
 # ==========================================
-# Унифицированный базовый класс оптимизаторов
+# Unified base class for interval optimizers
 # ==========================================
 
 def _check_convergence(a: float, b: float, eps: float) -> bool:
@@ -326,8 +326,10 @@ def _check_convergence(a: float, b: float, eps: float) -> bool:
 
 class IterativeOptimizer(Optimizer, ABC):
     """
-    Базовый класс для итеративных алгоритмов сужения интервала.
-    Берет на себя сбор истории, подсчет итераций и проверку сходимости.
+    Base class for iterative interval-reduction algorithms.
+
+    It handles interval history collection, iteration counting, and
+    convergence checks shared by several methods.
     """
 
     def __init__(self, name: str, max_iterations: int = 1000) -> None:
@@ -384,7 +386,7 @@ class IterativeOptimizer(Optimizer, ABC):
             self, func: ObjectiveFunction, a: float, b: float, eps: float
     ) -> Generator[Tuple[float, float, float, float], None, None]:
         """
-        Должен возвращать (a, b, x_min_текущий, f_min_текущий) на каждой итерации алгоритма.
+        Yield (a, b, current_x_min, current_f_min) at each iteration.
         """
         pass
 
@@ -465,7 +467,7 @@ class FibonacciOptimizer(IterativeOptimizer):
         n = len(fibs) - 1
         n = min(n, self.max_iterations)
 
-        assert n >= 2, "Fibonacci: недостаточно членов последовательности."
+        assert n >= 2, "Fibonacci: insufficient sequence length."
 
         c = a + (fibs[n - 2] / fibs[n]) * (b - a)
         d = a + (fibs[n - 1] / fibs[n]) * (b - a)
@@ -547,7 +549,7 @@ class ParabolaOptimizer(IterativeOptimizer):
 
 @contextmanager
 def temporary_bounds(func: ObjectiveFunction, a: float, b: float):
-    """Временно подменяет интервал функции — безопасно даже при исключениях."""
+    """Temporarily replace function bounds and restore them afterwards."""
     original = func.bounds
     func.bounds = (a, b)
     try:
@@ -563,12 +565,13 @@ def run_multimodal_strategy(
         fine_eps: float,
 ) -> pd.DataFrame:
     """
-    Двухэтапная стратегия для многомодальной функции (п. 3 условия лабы).
+    Two-stage strategy for the multimodal function from the laboratory task.
 
-    1. Пассивный поиск с грубой точностью → [x_recon ± 2h]
-    2. Активный метод на суженом интервале (разведка)
-    3. Активный метод на полном интервале (без разведки)
-    Возвращает DataFrame для сравнения.
+    1. Passive search with coarse precision to obtain [x_recon ± 2h]
+    2. Active method on the narrowed interval
+    3. The same active method on the full interval
+
+    Returns a comparison DataFrame.
     """
     recon = PassiveSearchOptimizer(max_evaluations=10_000_000)
     rows = []
@@ -867,7 +870,7 @@ class OptimizationExperiment:
             r"\midrule",
             r"\endhead",
             r"\midrule",
-            r"\multicolumn{6}{r}{\textit{Продолжение на следующей странице}} \\",
+            r"\multicolumn{6}{r}{\textit{Continued on the next page}} \\",
             r"\midrule",
             r"\endfoot",
             r"\bottomrule",
