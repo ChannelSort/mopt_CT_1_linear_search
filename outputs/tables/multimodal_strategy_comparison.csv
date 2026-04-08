@@ -1,0 +1,3 @@
+strategy,recon_calls,active_calls,total_calls,x_min,f_min,converged,note
+recon(eps=1e-01) + Golden Section(eps=1e-06),206,28,234,-1.3424152987501606e-08,3.552713678800501e-14,True,"interval narrowed to [-0.1249, 0.0749]"
+"Golden Section(eps=1e-06), no recon",0,36,36,0.9949587229260327,0.994959057094734,True,"full interval [-5.1200, 5.1200]"

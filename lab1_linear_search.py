@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+"""Laboratory work on one-dimensional optimization methods."""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
-from contextlib import contextmanager
-from typing import List, Tuple, Callable, Generator
+from typing import Callable, Generator, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize_scalar
+
+DEFAULT_EPSILONS = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8]
 
 
 # ==========================================
@@ -49,11 +53,7 @@ class ObjectiveFunction(ABC):
         return float(np.asarray(self._evaluate(np.asarray(x, dtype=float))).item())
 
     def evaluate_many(self, x: np.ndarray) -> np.ndarray:
-        """
-        Vectorized evaluation for methods such as passive search.
-
-        TODO: keep using vectorized calls in future optimizers whenever possible.
-        """
+        """Vectorized evaluation used by methods such as passive search."""
         x_array = np.asarray(x, dtype=float)
         self.call_count += int(x_array.size)
         return np.asarray(self._evaluate(x_array), dtype=float)
@@ -120,7 +120,7 @@ class SecondSpecialUnimodalFunction(ObjectiveFunction):
             name="Second special unimodal",
             bounds=(-1.0, 2.0),
             is_unimodal=True,
-            true_min=None,  # Можно оценить численно
+            true_min=None,
         )
 
     def _evaluate(self, x: np.ndarray) -> np.ndarray:
@@ -139,7 +139,7 @@ class MultimodalFunction(ObjectiveFunction):
             name="Multimodal Rastrigin",
             bounds=(-5.12, 5.12),
             is_unimodal=False,
-            true_min=0.0,  # глобальный минимум в x = 0
+            true_min=0.0,
         )
         self.A = 10.0
 
@@ -159,6 +159,7 @@ class OptimizationResult:
     n_iterations: int
     n_calls: int
     history: List[Tuple[float, float]] = field(default_factory=list)
+    history_iterations: List[int] = field(default_factory=list)
     converged: bool = True
     message: str = ""
     history_available: bool = True
@@ -180,12 +181,12 @@ class Optimizer(ABC):
 
 
 class PassiveSearchOptimizer(Optimizer):
+    """Uniform-grid passive search with vectorized function evaluation."""
 
-    def __init__(self, max_evaluations: int = 1_000_000) -> None:  # 10M → 1M
+    def __init__(self, max_evaluations: int = 1_000_000) -> None:
         super().__init__("Passive search")
         self.max_evaluations = max_evaluations
 
-    # В методе minimize — заменить Python-цикл истории на numpy:
     def minimize(self, func: ObjectiveFunction, eps: float) -> OptimizationResult:
         a, b = func.get_bounds()
         if eps <= 0:
@@ -205,7 +206,7 @@ class PassiveSearchOptimizer(Optimizer):
             sample_count = self.max_evaluations
             actual_eps = 2.0 * step
             message_prefix = (
-                f"WARNING: capped at {self.max_evaluations} evaluations; "
+                f"Limited to {self.max_evaluations} evaluations; "
                 f"actual localization width = {actual_eps:.3e} > requested {eps:.3e}. "
             )
         else:
@@ -214,15 +215,21 @@ class PassiveSearchOptimizer(Optimizer):
         x_grid = np.linspace(a, b, sample_count)
         y_grid = func.evaluate_many(x_grid)
 
-        # argmin нарастающий: на шаге i — индекс лучшей точки среди [0..i]
-        running_best_idx = np.array([
-            int(np.argmin(y_grid[:i + 1])) for i in range(0, sample_count, max(1, sample_count // 500))
-        ])  # прореживаем до 500 точек для истории
+        # Для длинных сеток сохраняем прореженную историю, но оставляем реальные
+        # номера итераций для корректной подписи оси X на графике.
+        stride = max(1, sample_count // 500)
+        sampled_iterations = np.arange(0, sample_count, stride, dtype=int)
+        if sampled_iterations[-1] != sample_count - 1:
+            sampled_iterations = np.append(sampled_iterations, sample_count - 1)
+
+        running_best_idx = np.array(
+            [int(np.argmin(y_grid[:i + 1])) for i in sampled_iterations],
+            dtype=int,
+        )
         bx = x_grid[running_best_idx]
         lower = np.clip(bx - step, a, b)
         upper = np.clip(bx + step, a, b)
         history = list(zip(lower.tolist(), upper.tolist()))
-        # ----------------------------------------------------
 
         best_index = int(np.argmin(y_grid))
 
@@ -232,7 +239,8 @@ class PassiveSearchOptimizer(Optimizer):
             n_iterations=n_segments,
             n_calls=func.call_count,
             history=history,
-            converged=True,
+            history_iterations=sampled_iterations.tolist(),
+            converged=not capped,
             message=(
                     message_prefix
                     + f"Grid scan finished. h = {step:.3e}, "
@@ -246,9 +254,9 @@ class BrentOptimizer(Optimizer):
     """
     SciPy Brent optimizer wrapper.
 
-    NOTE: SciPy does not expose the interval history, so the interval-dynamics
-    plot for this method remains a placeholder for now. The `brent` method uses
-    the interval only as an initial bracket, not as strict bounds.
+    SciPy does not expose the interval history, so the interval-dynamics plot
+    for this method is generated as an informational placeholder. The `brent`
+    method uses the interval only as an initial bracket, not as strict bounds.
     """
 
     def __init__(self, max_iterations: int = 500) -> None:
@@ -263,7 +271,6 @@ class BrentOptimizer(Optimizer):
             raise ValueError("Function bounds must satisfy a < b.")
 
         initial_bracket = (a, b)
-        # noinspection PyTypeChecker
         result = minimize_scalar(
             func,
             bracket=initial_bracket,
@@ -333,31 +340,32 @@ class IterativeOptimizer(Optimizer, ABC):
         history: List[Tuple[float, float]] = [(a, b)]
         iterations = 0
 
-        # Получаем генератор шагов от дочернего класса
         step_generator = self._generate_steps(func, a, b, eps)
 
         x_min: float = (a + b) / 2.0
         f_min: float = float("inf")
         converged = False
+        stopped_by_limit = False
 
         for current_a, current_b, current_x_min, current_f_min in step_generator:
             history.append((current_a, current_b))
             iterations += 1
             x_min, f_min = current_x_min, current_f_min
 
-            # Унифицированное условие выхода
             if _check_convergence(current_a, current_b, eps):
                 converged = True
                 break
 
             if iterations >= self.max_iterations:
+                stopped_by_limit = True
                 break
 
-        message = (
-            f"{self.name} search converged successfully."
-            if converged
-            else f"{self.name} reached maximum iterations before convergence."
-        )
+        if converged:
+            message = f"{self.name} search converged successfully."
+        elif stopped_by_limit:
+            message = f"{self.name} reached maximum iterations before convergence."
+        else:
+            message = f"{self.name} terminated without convergence."
 
         return OptimizationResult(
             x_min=float(x_min),
@@ -365,6 +373,7 @@ class IterativeOptimizer(Optimizer, ABC):
             n_iterations=iterations,
             n_calls=func.call_count,
             history=history,
+            history_iterations=list(range(len(history))),
             converged=converged,
             message=message,
             history_available=True,
@@ -417,18 +426,20 @@ class GoldenSectionOptimizer(IterativeOptimizer):
         fc = func(c)
         fd = func(d)
 
-        # Бесконечный цикл, выход из которого контролирует базовый IterativeOptimizer
         while True:
             if fc < fd:
                 b, d, fd = d, c, fc
                 c = b - phi * (b - a)
                 fc = func(c)
-                yield a, b, d, fd
             else:
                 a, c, fc = c, d, fd
                 d = a + phi * (b - a)
                 fd = func(d)
+
+            if fc < fd:
                 yield a, b, c, fc
+            else:
+                yield a, b, d, fd
 
 
 class FibonacciOptimizer(IterativeOptimizer):
@@ -471,7 +482,6 @@ class FibonacciOptimizer(IterativeOptimizer):
                 else:
                     c = a + (fibs[n - k - 2] / fibs[n - k]) * (b - a)
                 fc = func(c)
-                yield a, b, c, fc
             else:
                 a, c, fc = c, d, fd
                 if last_step:
@@ -479,6 +489,10 @@ class FibonacciOptimizer(IterativeOptimizer):
                 else:
                     d = a + (fibs[n - k - 1] / fibs[n - k]) * (b - a)
                 fd = func(d)
+
+            if fc < fd:
+                yield a, b, c, fc
+            else:
                 yield a, b, d, fd
 
 
@@ -501,12 +515,14 @@ class ParabolaOptimizer(IterativeOptimizer):
             denominator = 2.0 * ((x1 - x0) * (f1 - f2) - (x1 - x2) * (f1 - f0))
 
             if abs(denominator) < 1e-12:
-                # Метод нашёл минимум с машинной точностью.
-                # Сигнализируем базовому классу через вырожденный интервал.
                 yield x1 - 1e-15, x1 + 1e-15, x1, f1
                 return
 
             x_new = x1 - numerator / denominator
+            if not np.isfinite(x_new) or x_new <= x0 or x_new >= x2:
+                yield x0, x2, x1, f1
+                return
+
             f_new = func(x_new)
 
             if x_new < x1:
@@ -522,7 +538,7 @@ class ParabolaOptimizer(IterativeOptimizer):
                 else:
                     x2, f2 = x_new, f_new
 
-            yield x0, x2, x_new, f_new
+            yield x0, x2, x1, f1
 
 
 # ==========================================
@@ -557,24 +573,21 @@ def run_multimodal_strategy(
     recon = PassiveSearchOptimizer(max_evaluations=10_000_000)
     rows = []
 
-    # --- Разведка ---
     func.reset_count()
     recon_result = recon.minimize(func, recon_eps)
     recon_calls = func.call_count
 
-    # Суженный интервал: x_recon ± 2h, гарантируем вхождение в [a, b]
     a_orig, b_orig = func.get_bounds()
     h = (b_orig - a_orig) / recon_result.n_iterations
     narrow_a = max(a_orig, recon_result.x_min - 2 * h)
     narrow_b = min(b_orig, recon_result.x_min + 2 * h)
 
-    # --- Активный метод на суженом интервале ---
     with temporary_bounds(func, narrow_a, narrow_b):
         func.reset_count()
         narrow_result = active_optimizer.minimize(func, fine_eps)
 
     rows.append({
-        "strategy": f"recon(ε={recon_eps:.0e}) + {active_optimizer.name}(ε={fine_eps:.0e})",
+        "strategy": f"recon(eps={recon_eps:.0e}) + {active_optimizer.name}(eps={fine_eps:.0e})",
         "recon_calls": recon_calls,
         "active_calls": narrow_result.n_calls,
         "total_calls": recon_calls + narrow_result.n_calls,
@@ -584,12 +597,11 @@ def run_multimodal_strategy(
         "note": f"interval narrowed to [{narrow_a:.4f}, {narrow_b:.4f}]",
     })
 
-    # --- Активный метод на полном интервале (без разведки) ---
     func.reset_count()
     blind_result = active_optimizer.minimize(func, fine_eps)
 
     rows.append({
-        "strategy": f"{active_optimizer.name}(ε={fine_eps:.0e}), no recon",
+        "strategy": f"{active_optimizer.name}(eps={fine_eps:.0e}), no recon",
         "recon_calls": 0,
         "active_calls": blind_result.n_calls,
         "total_calls": blind_result.n_calls,
@@ -624,7 +636,7 @@ class OptimizationExperiment:
         self.results_data: List[dict] = []
 
     def run(self, epsilon_list: List[float]) -> None:
-        """Run all experiment combinations and store both successes and TODO rows."""
+        """Run all experiment combinations and store successes and failures."""
         self.results_data = []
 
         for func in self.functions:
@@ -645,6 +657,7 @@ class OptimizationExperiment:
                                 "x_min": result.x_min,
                                 "f_min": result.f_min,
                                 "history": result.history,
+                                "history_iterations": result.history_iterations,
                                 "history_available": result.history_available,
                                 "converged": result.converged,
                                 "status": "success" if result.converged else "warning",
@@ -663,6 +676,7 @@ class OptimizationExperiment:
                                 "x_min": np.nan,
                                 "f_min": np.nan,
                                 "history": [],
+                                "history_iterations": [],
                                 "history_available": False,
                                 "converged": False,
                                 "status": "todo",
@@ -681,6 +695,7 @@ class OptimizationExperiment:
                                 "x_min": np.nan,
                                 "f_min": np.nan,
                                 "history": [],
+                                "history_iterations": [],
                                 "history_available": False,
                                 "converged": False,
                                 "status": "error",
@@ -695,11 +710,7 @@ class OptimizationExperiment:
         return pd.DataFrame(self.results_data)
 
     def build_summary_table(self, include_failed: bool = True) -> pd.DataFrame:
-        """
-        Build a clean, numbered table for console output and export.
-
-        TODO: adapt the final table layout once the team agrees on the report style.
-        """
+        """Build a clean, numbered table for console output and export."""
         result_df = self.results_dataframe()
         if result_df.empty:
             return pd.DataFrame()
@@ -740,6 +751,132 @@ class OptimizationExperiment:
         table.to_csv(output_path, index=False)
         return output_path
 
+    def save_tables_by_function(self, only_unimodal: bool = True) -> List[Path]:
+        """
+        Save separate numbered tables for each function.
+
+        This is convenient for the report, where tables are usually discussed
+        function by function.
+        """
+        result_df = self.results_dataframe()
+        if result_df.empty:
+            return []
+
+        result_df = result_df[result_df["status"] == "success"].copy()
+        if only_unimodal:
+            result_df = result_df[result_df["is_unimodal"]].copy()
+
+        saved_paths: List[Path] = []
+        for function_name in result_df["function"].unique():
+            df_func = result_df[result_df["function"] == function_name].copy()
+            df_func = df_func.sort_values(by=["optimizer", "epsilon"], ascending=[True, False]).reset_index(drop=True)
+            table = pd.DataFrame(
+                {
+                    "No.": np.arange(1, len(df_func) + 1),
+                    "Optimizer": df_func["optimizer"],
+                    "Epsilon": df_func["epsilon"],
+                    "Iterations": df_func["iterations"],
+                    "Function calls": df_func["calls"],
+                    "x_min": df_func["x_min"],
+                    "f(x_min)": df_func["f_min"],
+                    "Status": df_func["status"],
+                    "Comment": df_func["message"],
+                }
+            )
+            output_path = self.tables_dir / f"{self._slugify(function_name)}_table.csv"
+            table.to_csv(output_path, index=False)
+            saved_paths.append(output_path)
+
+        return saved_paths
+
+    def save_report_tables(self, only_unimodal: bool = True) -> List[Path]:
+        """
+        Save compact LaTeX tables intended for direct inclusion into Report.tex.
+
+        The exported tables focus on the quantities required by the laboratory
+        task: epsilon, iteration count and function-call count.
+        """
+        result_df = self.results_dataframe()
+        if result_df.empty:
+            return []
+
+        if only_unimodal:
+            result_df = result_df[result_df["is_unimodal"]].copy()
+
+        saved_paths: List[Path] = []
+        for function_name in result_df["function"].unique():
+            df_func = result_df[result_df["function"] == function_name].copy()
+            df_func = df_func.sort_values(by=["optimizer", "epsilon"], ascending=[True, False]).reset_index(drop=True)
+            table = pd.DataFrame(
+                {
+                    "No.": np.arange(1, len(df_func) + 1),
+                    "Method": df_func["optimizer"],
+                    "Epsilon": df_func["epsilon"],
+                    "Iterations": df_func["iterations"],
+                    "Function calls": df_func["calls"],
+                    "Status": df_func["status"],
+                }
+            )
+
+            latex = self._dataframe_to_longtable(table)
+
+            output_path = self.tables_dir / f"{self._slugify(function_name)}_table.tex"
+            output_path.write_text(latex, encoding="utf-8")
+            saved_paths.append(output_path)
+
+        return saved_paths
+
+    @staticmethod
+    def _format_table_value(value: object) -> str:
+        if isinstance(value, (float, np.floating)):
+            if value == 0:
+                return "0"
+            if abs(value) < 1e-2 or abs(value) >= 1e3:
+                return f"{value:.0e}"
+            return f"{value:g}"
+        text = str(value)
+        return (
+            text.replace("\\", "\\textbackslash{}")
+            .replace("&", "\\&")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+            .replace("#", "\\#")
+            .replace("{", "\\{")
+            .replace("}", "\\}")
+        )
+
+    @classmethod
+    def _dataframe_to_longtable(cls, table: pd.DataFrame) -> str:
+        columns = list(table.columns)
+        column_spec = "rllrrl"
+
+        header = " & ".join(cls._format_table_value(column) for column in columns) + r" \\"
+        body_lines = []
+        for row in table.itertuples(index=False, name=None):
+            formatted_row = " & ".join(cls._format_table_value(value) for value in row)
+            body_lines.append(formatted_row + r" \\")
+
+        lines = [
+            r"\begin{longtable}{" + column_spec + "}",
+            r"\toprule",
+            header,
+            r"\midrule",
+            r"\endfirsthead",
+            r"\toprule",
+            header,
+            r"\midrule",
+            r"\endhead",
+            r"\midrule",
+            r"\multicolumn{6}{r}{\textit{Продолжение на следующей странице}} \\",
+            r"\midrule",
+            r"\endfoot",
+            r"\bottomrule",
+            r"\endlastfoot",
+            *body_lines,
+            r"\end{longtable}",
+        ]
+        return "\n".join(lines) + "\n"
+
     def plot_metrics(self, only_unimodal: bool = True, show: bool = False) -> List[Path]:
         """
         Plot epsilon vs iterations and epsilon vs function calls for each function.
@@ -778,6 +915,8 @@ class OptimizationExperiment:
 
             axes[0].set_xscale("log")
             axes[1].set_xscale("log")
+            axes[0].set_yscale("log")
+            axes[1].set_yscale("log")
             axes[0].set_xlabel("Epsilon")
             axes[1].set_xlabel("Epsilon")
             axes[0].set_ylabel("Iterations")
@@ -788,8 +927,10 @@ class OptimizationExperiment:
             for ax in axes:
                 ax.grid(True, which="both", linestyle="--", alpha=0.5)
                 ax.legend()
-                ax.axhline(0.0, color="black", linewidth=0.8)
-                ax.axvline(df_func["epsilon"].min(), color="black", linewidth=0.0)
+                ax.spines["left"].set_visible(True)
+                ax.spines["bottom"].set_visible(True)
+                ax.spines["left"].set_color("black")
+                ax.spines["bottom"].set_color("black")
 
             fig.suptitle(f"Efficiency comparison for {function_name}", fontsize=13)
             fig.tight_layout()
@@ -815,7 +956,7 @@ class OptimizationExperiment:
         Plot the lower and upper bounds of the uncertainty interval by iteration.
 
         If the selected method does not expose interval history yet, the function
-        still generates a placeholder plot with a TODO note.
+        still generates an informational placeholder plot.
         """
         result_df = self.results_dataframe()
         if result_df.empty:
@@ -835,7 +976,11 @@ class OptimizationExperiment:
 
         if bool(row["history_available"]) and len(row["history"]) >= 2:
             history = row["history"]
-            iterations = np.arange(len(history))
+            stored_iterations = row.get("history_iterations", [])
+            if stored_iterations and len(stored_iterations) == len(history):
+                iterations = np.asarray(stored_iterations)
+            else:
+                iterations = np.arange(len(history))
             lower_bounds = [interval[0] for interval in history]
             upper_bounds = [interval[1] for interval in history]
 
@@ -846,7 +991,7 @@ class OptimizationExperiment:
             ax.text(
                 0.5,
                 0.5,
-                "TODO: interval history is not available for this method yet.",
+                "Interval history is not available for this method.",
                 transform=ax.transAxes,
                 ha="center",
                 va="center",
@@ -886,11 +1031,7 @@ class OptimizationExperiment:
 
 
 def build_demo_experiment() -> OptimizationExperiment:
-    """
-    Assemble the current working skeleton used by the team right now.
-
-    TODO: expand this list when other optimizers and functions are implemented.
-    """
+    """Create the full experiment configuration used in the laboratory work."""
     functions: List[ObjectiveFunction] = [
         GoodUnimodalFunction(),
         PlateauAsymmetricUnimodalFunction(),
@@ -910,16 +1051,16 @@ def build_demo_experiment() -> OptimizationExperiment:
     return OptimizationExperiment(optimizers=optimizers, functions=functions)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Run the full experiment suite and save all generated artifacts."""
     experiment = build_demo_experiment()
 
-    # NOTE: passive search is expensive for very small eps on wide intervals.
-    # TODO: revisit the final epsilon grid when the full project configuration is fixed.
-    epsilons = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8]
-    experiment.run(epsilons)
+    experiment.run(DEFAULT_EPSILONS)
     experiment.print_summary_table(include_failed=True)
 
     summary_path = experiment.save_summary_table()
+    function_table_paths = experiment.save_tables_by_function(only_unimodal=True)
+    report_table_paths = experiment.save_report_tables(only_unimodal=True)
     plot_paths = experiment.plot_metrics(only_unimodal=True, show=False)
 
     df = experiment.results_dataframe()
@@ -931,9 +1072,8 @@ if __name__ == "__main__":
             show=False,
         )
 
-    # Демонстрация двухэтапной стратегии для многомодальной функции
     multimodal_func = MultimodalFunction()
-    active_opt = GoldenSectionOptimizer()  # любой активный
+    active_opt = GoldenSectionOptimizer()
 
     print("\n=== Multimodal strategy: recon + active vs blind ===")
     strategy_df = run_multimodal_strategy(
@@ -943,3 +1083,21 @@ if __name__ == "__main__":
         fine_eps=1e-6,
     )
     print(strategy_df.to_string(index=False))
+    strategy_path = experiment.tables_dir / "multimodal_strategy_comparison.csv"
+    strategy_df.to_csv(strategy_path, index=False)
+
+    print(f"\nSummary table saved to: {summary_path}")
+    print("Function tables:")
+    for path in function_table_paths:
+        print(f" - {path}")
+    print("Report tables:")
+    for path in report_table_paths:
+        print(f" - {path}")
+    print("Metric plots:")
+    for path in plot_paths:
+        print(f" - {path}")
+    print(f"Multimodal strategy table saved to: {strategy_path}")
+
+
+if __name__ == "__main__":
+    main()
