@@ -143,78 +143,78 @@ The returned value satisfies the termination criteria
 94,Multimodal Rastrigin,Passive search,1e-06,999999,1000000,-5.1200051194300045e-06,5.20073939469512e-09,warning,"Limited to 1000000 evaluations; actual localization width = 2.048e-05 > requested 1.000e-06. Grid scan finished. h = 1.024e-05, localization width <= 2.048e-05."
 95,Multimodal Rastrigin,Passive search,1e-07,999999,1000000,-5.1200051194300045e-06,5.20073939469512e-09,warning,"Limited to 1000000 evaluations; actual localization width = 2.048e-05 > requested 1.000e-07. Grid scan finished. h = 1.024e-05, localization width <= 2.048e-05."
 96,Multimodal Rastrigin,Passive search,1e-08,999999,1000000,-5.1200051194300045e-06,5.20073939469512e-09,warning,"Limited to 1000000 evaluations; actual localization width = 2.048e-05 > requested 1.000e-08. Grid scan finished. h = 1.024e-05, localization width <= 2.048e-05."
-97,Plateau asymmetric unimodal,Brent (SciPy),0.1,8,11,1.675292257616734,0.0,success,"
+97,Plateau asymmetric unimodal,Brent (SciPy),0.1,5,8,1.000000000000001,1.232595164407831e-32,success,"
 Optimization terminated successfully;
 The returned value satisfies the termination criteria
 (using xtol = 0.1 )"
-98,Plateau asymmetric unimodal,Brent (SciPy),0.01,12,15,1.3374535393173188,0.0,success,"
+98,Plateau asymmetric unimodal,Brent (SciPy),0.01,5,8,1.000000000000001,1.232595164407831e-32,success,"
 Optimization terminated successfully;
 The returned value satisfies the termination criteria
 (using xtol = 0.01 )"
-99,Plateau asymmetric unimodal,Brent (SciPy),0.001,17,20,1.3035502553393226,0.0,success,"
+99,Plateau asymmetric unimodal,Brent (SciPy),0.001,5,8,1.000000000000001,1.232595164407831e-32,success,"
 Optimization terminated successfully;
 The returned value satisfies the termination criteria
 (using xtol = 0.001 )"
-100,Plateau asymmetric unimodal,Brent (SciPy),0.0001,22,25,1.3003289204746737,0.0,success,"
+100,Plateau asymmetric unimodal,Brent (SciPy),0.0001,5,8,1.000000000000001,1.232595164407831e-32,success,"
 Optimization terminated successfully;
 The returned value satisfies the termination criteria
 (using xtol = 0.0001 )"
-101,Plateau asymmetric unimodal,Brent (SciPy),1e-05,27,30,1.3000296683912473,0.0,success,"
+101,Plateau asymmetric unimodal,Brent (SciPy),1e-05,5,8,1.000000000000001,1.232595164407831e-32,success,"
 Optimization terminated successfully;
 The returned value satisfies the termination criteria
 (using xtol = 1e-05 )"
-102,Plateau asymmetric unimodal,Brent (SciPy),1e-06,32,35,1.3000026752854348,0.0,success,"
+102,Plateau asymmetric unimodal,Brent (SciPy),1e-06,5,8,1.000000000000001,1.232595164407831e-32,success,"
 Optimization terminated successfully;
 The returned value satisfies the termination criteria
 (using xtol = 1e-06 )"
-103,Plateau asymmetric unimodal,Brent (SciPy),1e-07,36,39,1.300000371241199,0.0,success,"
+103,Plateau asymmetric unimodal,Brent (SciPy),1e-07,5,8,1.000000000000001,1.232595164407831e-32,success,"
 Optimization terminated successfully;
 The returned value satisfies the termination criteria
 (using xtol = 1e-07 )"
-104,Plateau asymmetric unimodal,Brent (SciPy),1e-08,41,44,1.3000000347618086,0.0,success,"
+104,Plateau asymmetric unimodal,Brent (SciPy),1e-08,5,8,1.000000000000001,1.232595164407831e-32,success,"
 Optimization terminated successfully;
 The returned value satisfies the termination criteria
 (using xtol = 1e-08 )"
-105,Plateau asymmetric unimodal,Dichotomy,0.1,7,14,1.6982812499999997,0.0,success,Dichotomy search converged successfully.
-106,Plateau asymmetric unimodal,Dichotomy,0.01,10,20,1.6963886718749999,0.0,success,Dichotomy search converged successfully.
-107,Plateau asymmetric unimodal,Dichotomy,0.001,14,28,1.6998145385742192,0.0,success,Dichotomy search converged successfully.
-108,Plateau asymmetric unimodal,Dichotomy,0.0001,17,34,1.7000229570007326,0.05,success,Dichotomy search converged successfully.
-109,Plateau asymmetric unimodal,Dichotomy,1e-05,20,40,1.700125722917557,0.05000000000000005,success,Dichotomy search converged successfully.
-110,Plateau asymmetric unimodal,Dichotomy,1e-06,24,48,1.7002330901296736,0.05000000000000059,success,Dichotomy search converged successfully.
-111,Plateau asymmetric unimodal,Dichotomy,1e-07,27,54,1.7006839025215141,0.05000000000004375,success,Dichotomy search converged successfully.
-112,Plateau asymmetric unimodal,Dichotomy,1e-08,30,60,1.701438940136137,0.050000000000857435,success,Dichotomy search converged successfully.
-113,Plateau asymmetric unimodal,Fibonacci,0.1,9,11,1.685393258426966,0.0,success,Fibonacci search converged successfully.
-114,Plateau asymmetric unimodal,Fibonacci,0.01,14,16,1.6960486322188446,0.0,success,Fibonacci search converged successfully.
-115,Plateau asymmetric unimodal,Fibonacci,0.001,19,21,1.69961629819112,0.0,success,Fibonacci search converged successfully.
-116,Plateau asymmetric unimodal,Fibonacci,0.0001,24,26,1.6999827008147097,0.0,success,Fibonacci search converged successfully.
-117,Plateau asymmetric unimodal,Fibonacci,1e-05,28,30,1.6999951925388201,0.0,success,Fibonacci search converged successfully.
-118,Plateau asymmetric unimodal,Fibonacci,1e-06,33,35,1.6999995123254328,0.0,success,Fibonacci search converged successfully.
-119,Plateau asymmetric unimodal,Fibonacci,1e-07,38,40,1.6999999953421372,0.0,success,Fibonacci search converged successfully.
-120,Plateau asymmetric unimodal,Fibonacci,1e-08,43,45,1.699999999118868,0.0,success,Fibonacci search converged successfully.
-121,Plateau asymmetric unimodal,Golden Section,0.1,10,12,1.6871977298292338,0.0,success,Golden Section search converged successfully.
-122,Plateau asymmetric unimodal,Golden Section,0.01,14,16,1.6989279288029522,0.0,success,Golden Section search converged successfully.
-123,Plateau asymmetric unimodal,Golden Section,0.001,19,21,1.6999856401845828,0.0,success,Golden Section search converged successfully.
-124,Plateau asymmetric unimodal,Golden Section,0.0001,24,26,1.6999856401845828,0.0,success,Golden Section search converged successfully.
-125,Plateau asymmetric unimodal,Golden Section,1e-05,29,31,1.699999555030941,0.0,success,Golden Section search converged successfully.
-126,Plateau asymmetric unimodal,Golden Section,1e-06,34,36,1.6999999427548462,0.0,success,Golden Section search converged successfully.
-127,Plateau asymmetric unimodal,Golden Section,1e-07,38,40,1.6999999993230015,0.0,success,Golden Section search converged successfully.
-128,Plateau asymmetric unimodal,Golden Section,1e-08,43,45,1.6999999993230015,0.0,success,Golden Section search converged successfully.
-129,Plateau asymmetric unimodal,Parabola,0.1,41,43,1.5142487193843241,0.0,success,Parabola search converged successfully.
-130,Plateau asymmetric unimodal,Parabola,0.01,41,43,1.5142487193843241,0.0,success,Parabola search converged successfully.
-131,Plateau asymmetric unimodal,Parabola,0.001,41,43,1.5142487193843241,0.0,success,Parabola search converged successfully.
-132,Plateau asymmetric unimodal,Parabola,0.0001,41,43,1.5142487193843241,0.0,success,Parabola search converged successfully.
-133,Plateau asymmetric unimodal,Parabola,1e-05,41,43,1.5142487193843241,0.0,success,Parabola search converged successfully.
-134,Plateau asymmetric unimodal,Parabola,1e-06,41,43,1.5142487193843241,0.0,success,Parabola search converged successfully.
-135,Plateau asymmetric unimodal,Parabola,1e-07,41,43,1.5142487193843241,0.0,success,Parabola search converged successfully.
-136,Plateau asymmetric unimodal,Parabola,1e-08,41,43,1.5142487193843241,0.0,success,Parabola search converged successfully.
-137,Plateau asymmetric unimodal,Passive search,0.1,160,161,1.3000000000000003,0.0,success,"Grid scan finished. h = 5.000e-02, localization width <= 1.000e-01."
-138,Plateau asymmetric unimodal,Passive search,0.01,1600,1601,1.3000000000000003,0.0,success,"Grid scan finished. h = 5.000e-03, localization width <= 1.000e-02."
-139,Plateau asymmetric unimodal,Passive search,0.001,16000,16001,1.3000000000000003,0.0,success,"Grid scan finished. h = 5.000e-04, localization width <= 1.000e-03."
-140,Plateau asymmetric unimodal,Passive search,0.0001,160000,160001,1.3000000000000003,0.0,success,"Grid scan finished. h = 5.000e-05, localization width <= 1.000e-04."
-141,Plateau asymmetric unimodal,Passive search,1e-05,999999,1000000,1.3000033000032998,0.0,warning,"Limited to 1000000 evaluations; actual localization width = 1.600e-05 > requested 1.000e-05. Grid scan finished. h = 8.000e-06, localization width <= 1.600e-05."
-142,Plateau asymmetric unimodal,Passive search,1e-06,999999,1000000,1.3000033000032998,0.0,warning,"Limited to 1000000 evaluations; actual localization width = 1.600e-05 > requested 1.000e-06. Grid scan finished. h = 8.000e-06, localization width <= 1.600e-05."
-143,Plateau asymmetric unimodal,Passive search,1e-07,999999,1000000,1.3000033000032998,0.0,warning,"Limited to 1000000 evaluations; actual localization width = 1.600e-05 > requested 1.000e-07. Grid scan finished. h = 8.000e-06, localization width <= 1.600e-05."
-144,Plateau asymmetric unimodal,Passive search,1e-08,999999,1000000,1.3000033000032998,0.0,warning,"Limited to 1000000 evaluations; actual localization width = 1.600e-05 > requested 1.000e-08. Grid scan finished. h = 8.000e-06, localization width <= 1.600e-05."
+105,Plateau asymmetric unimodal,Dichotomy,0.1,7,14,1.0548437499999999,3.0078369140624845e-05,success,Dichotomy search converged successfully.
+106,Plateau asymmetric unimodal,Dichotomy,0.01,10,20,1.0070605468749998,4.985132217406938e-07,success,Dichotomy search converged successfully.
+107,Plateau asymmetric unimodal,Dichotomy,0.001,14,28,1.000413269042969,1.7079130187652236e-09,success,Dichotomy search converged successfully.
+108,Plateau asymmetric unimodal,Dichotomy,0.0001,17,34,1.0000535350036623,2.8659966171269343e-11,success,Dichotomy search converged successfully.
+109,Plateau asymmetric unimodal,Dichotomy,1e-05,20,40,1.000006879392624,4.73260428752014e-13,success,Dichotomy search converged successfully.
+110,Plateau asymmetric unimodal,Dichotomy,1e-06,24,48,1.0000004018371462,1.6147309208579992e-15,success,Dichotomy search converged successfully.
+111,Plateau asymmetric unimodal,Dichotomy,1e-07,27,54,1.0000000521046446,2.714893988780498e-17,success,Dichotomy search converged successfully.
+112,Plateau asymmetric unimodal,Dichotomy,1e-08,30,60,1.0000000067005805,4.48977795042593e-19,success,Dichotomy search converged successfully.
+113,Plateau asymmetric unimodal,Fibonacci,0.1,9,11,1.0561797752808986,3.156167150612262e-05,success,Fibonacci search converged successfully.
+114,Plateau asymmetric unimodal,Fibonacci,0.01,14,16,1.00709219858156,5.029928072028112e-07,success,Fibonacci search converged successfully.
+115,Plateau asymmetric unimodal,Fibonacci,0.001,19,21,1.000182715147086,3.33848249746217e-10,success,Fibonacci search converged successfully.
+116,Plateau asymmetric unimodal,Fibonacci,0.0001,24,26,1.0000411885364069,1.696495531341595e-11,success,Fibonacci search converged successfully.
+117,Plateau asymmetric unimodal,Fibonacci,1e-05,28,30,1.0,0.0,success,Fibonacci search converged successfully.
+118,Plateau asymmetric unimodal,Fibonacci,1e-06,33,35,1.0000005418606301,2.9361294249926817e-15,success,Fibonacci search converged successfully.
+119,Plateau asymmetric unimodal,Fibonacci,1e-07,38,40,1.0000000684033596,4.679019610476794e-17,success,Fibonacci search converged successfully.
+120,Plateau asymmetric unimodal,Fibonacci,1e-08,43,45,1.0000000017622652,3.1055787149189836e-20,success,Fibonacci search converged successfully.
+121,Plateau asymmetric unimodal,Golden Section,0.1,10,12,1.0155281000757093,2.4112189196124197e-06,success,Golden Section search converged successfully.
+122,Plateau asymmetric unimodal,Golden Section,0.01,14,16,1.0001730702717122,2.9953318950536703e-10,success,Golden Section search converged successfully.
+123,Plateau asymmetric unimodal,Golden Section,0.001,19,21,1.0001730702717122,2.9953318950536703e-10,success,Golden Section search converged successfully.
+124,Plateau asymmetric unimodal,Golden Section,0.0001,24,26,1.0000005374904997,2.8889603722858565e-15,success,Golden Section search converged successfully.
+125,Plateau asymmetric unimodal,Golden Section,1e-05,29,31,1.0000005374904997,2.8889603722858565e-15,success,Golden Section search converged successfully.
+126,Plateau asymmetric unimodal,Golden Section,1e-06,34,36,1.0000001497665947,2.2430032882482627e-16,success,Golden Section search converged successfully.
+127,Plateau asymmetric unimodal,Golden Section,1e-07,38,40,1.0000000016692412,2.7863661494471104e-20,success,Golden Section search converged successfully.
+128,Plateau asymmetric unimodal,Golden Section,1e-08,43,45,1.0000000016692412,2.7863661494471104e-20,success,Golden Section search converged successfully.
+129,Plateau asymmetric unimodal,Parabola,0.1,1000,1003,1.9999681831478102,0.009999363673079326,warning,Parabola reached maximum iterations before convergence.
+130,Plateau asymmetric unimodal,Parabola,0.01,1000,1003,1.9999681831478102,0.009999363673079326,warning,Parabola reached maximum iterations before convergence.
+131,Plateau asymmetric unimodal,Parabola,0.001,1000,1003,1.9999681831478102,0.009999363673079326,warning,Parabola reached maximum iterations before convergence.
+132,Plateau asymmetric unimodal,Parabola,0.0001,1000,1003,1.9999681831478102,0.009999363673079326,warning,Parabola reached maximum iterations before convergence.
+133,Plateau asymmetric unimodal,Parabola,1e-05,1000,1003,1.9999681831478102,0.009999363673079326,warning,Parabola reached maximum iterations before convergence.
+134,Plateau asymmetric unimodal,Parabola,1e-06,1000,1003,1.9999681831478102,0.009999363673079326,warning,Parabola reached maximum iterations before convergence.
+135,Plateau asymmetric unimodal,Parabola,1e-07,1000,1003,1.9999681831478102,0.009999363673079326,warning,Parabola reached maximum iterations before convergence.
+136,Plateau asymmetric unimodal,Parabola,1e-08,1000,1003,1.9999681831478102,0.009999363673079326,warning,Parabola reached maximum iterations before convergence.
+137,Plateau asymmetric unimodal,Passive search,0.1,160,161,1.0,0.0,success,"Grid scan finished. h = 5.000e-02, localization width <= 1.000e-01."
+138,Plateau asymmetric unimodal,Passive search,0.01,1600,1601,1.0,0.0,success,"Grid scan finished. h = 5.000e-03, localization width <= 1.000e-02."
+139,Plateau asymmetric unimodal,Passive search,0.001,16000,16001,1.0,0.0,success,"Grid scan finished. h = 5.000e-04, localization width <= 1.000e-03."
+140,Plateau asymmetric unimodal,Passive search,0.0001,160000,160001,1.0,0.0,success,"Grid scan finished. h = 5.000e-05, localization width <= 1.000e-04."
+141,Plateau asymmetric unimodal,Passive search,1e-05,999999,1000000,1.0000030000029998,9.000017998796143e-14,warning,"Limited to 1000000 evaluations; actual localization width = 1.600e-05 > requested 1.000e-05. Grid scan finished. h = 8.000e-06, localization width <= 1.600e-05."
+142,Plateau asymmetric unimodal,Passive search,1e-06,999999,1000000,1.0000030000029998,9.000017998796143e-14,warning,"Limited to 1000000 evaluations; actual localization width = 1.600e-05 > requested 1.000e-06. Grid scan finished. h = 8.000e-06, localization width <= 1.600e-05."
+143,Plateau asymmetric unimodal,Passive search,1e-07,999999,1000000,1.0000030000029998,9.000017998796143e-14,warning,"Limited to 1000000 evaluations; actual localization width = 1.600e-05 > requested 1.000e-07. Grid scan finished. h = 8.000e-06, localization width <= 1.600e-05."
+144,Plateau asymmetric unimodal,Passive search,1e-08,999999,1000000,1.0000030000029998,9.000017998796143e-14,warning,"Limited to 1000000 evaluations; actual localization width = 1.600e-05 > requested 1.000e-08. Grid scan finished. h = 8.000e-06, localization width <= 1.600e-05."
 145,Second special unimodal,Brent (SciPy),0.1,9,12,0.6473748631728402,0.5799943943455048,success,"
 Optimization terminated successfully;
 The returned value satisfies the termination criteria

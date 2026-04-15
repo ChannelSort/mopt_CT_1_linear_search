@@ -86,9 +86,11 @@ class GoodUnimodalFunction(ObjectiveFunction):
 
 class PlateauAsymmetricUnimodalFunction(ObjectiveFunction):
     """
-    An unimodal function with a flat minimum area and asymmetric growth.
+    Smooth but extremely asymmetric unimodal function.
 
-    The minimum is reached on a short plateau around x = 1.5.
+    Designed to break parabolic interpolation:
+    - very steep on the left
+    - very flat on the right
     """
 
     def __init__(self) -> None:
@@ -96,17 +98,16 @@ class PlateauAsymmetricUnimodalFunction(ObjectiveFunction):
             name="Plateau asymmetric unimodal",
             bounds=(-2.0, 6.0),
             is_unimodal=True,
-            true_min=1.5,
+            true_min=1.0,
         )
 
     def _evaluate(self, x: np.ndarray) -> np.ndarray:
-        center = 1.5
-        half_plateau = 0.2
-        distance = np.abs(x - center)
+        dx = x - 1.0
 
-        left_branch = 2.0 * np.maximum(0.0, center - x - half_plateau) ** 2
-        right_branch = 0.2 * np.maximum(0.0, x - center - half_plateau) ** 4
-        return np.where(distance <= half_plateau, 0.0, left_branch + right_branch + 0.05)
+        left = np.exp(5 * (-dx))
+        right = 0.01 * dx ** 2
+
+        return np.where(dx < 0, left, right)
 
 
 class SecondSpecialUnimodalFunction(ObjectiveFunction):
@@ -501,7 +502,7 @@ class FibonacciOptimizer(IterativeOptimizer):
 class ParabolaOptimizer(IterativeOptimizer):
     """Parabolic interpolation search."""
 
-    def __init__(self, max_iterations: int = 500) -> None:
+    def __init__(self, max_iterations: int = 1000) -> None:
         super().__init__("Parabola", max_iterations)
 
     def _generate_steps(
@@ -721,7 +722,8 @@ class OptimizationExperiment:
         if not include_failed:
             result_df = result_df[result_df["status"] == "success"].copy()
 
-        result_df = result_df.sort_values(by=["function", "optimizer", "epsilon"], ascending=[True, True, False]).reset_index(
+        result_df = result_df.sort_values(by=["function", "optimizer", "epsilon"],
+                                          ascending=[True, True, False]).reset_index(
             drop=True)
         table = pd.DataFrame(
             {
