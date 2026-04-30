@@ -5,9 +5,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from contextlib import contextmanager
-from functools import wraps
 from pathlib import Path
-from typing import Callable, Generator, List, Tuple
+from typing import Generator, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -299,25 +298,6 @@ class BrentOptimizer(Optimizer):
 
 
 # ==========================================
-# Decorators
-# ==========================================
-
-def validate_bounds(func: Callable) -> Callable:
-    """Validate epsilon and interval bounds for all methods."""
-
-    @wraps(func)
-    def wrapper(self, objective: 'ObjectiveFunction', eps: float, *args, **kwargs) -> OptimizationResult:
-        a, b = objective.get_bounds()
-        if eps <= 0:
-            raise ValueError("Epsilon must be positive.")
-        if a >= b:
-            raise ValueError("Function bounds must satisfy a < b.")
-        return func(self, objective, eps, *args, **kwargs)
-
-    return wrapper
-
-
-# ==========================================
 # Unified base class for interval optimizers
 # ==========================================
 
@@ -337,9 +317,13 @@ class IterativeOptimizer(Optimizer, ABC):
         super().__init__(name)
         self.max_iterations = max_iterations
 
-    @validate_bounds
     def minimize(self, func: ObjectiveFunction, eps: float) -> OptimizationResult:
         a, b = func.get_bounds()
+        if eps <= 0:
+            raise ValueError("Epsilon must be positive.")
+        if a >= b:
+            raise ValueError("Function bounds must satisfy a < b.")
+
         history: List[Tuple[float, float]] = [(a, b)]
         iterations = 0
 
