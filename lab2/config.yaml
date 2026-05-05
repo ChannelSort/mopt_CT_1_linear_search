@@ -1,0 +1,28 @@
+functions:
+  - WellConditionedQuadratic
+  - IllConditionedQuadratic
+  - Rosenbrock
+  - Ackley
+  - Himmelblau
+optimizers:
+  - name: ConstantStepGD
+    param_grid:
+      values:
+        alpha: [1.0e-4, 3.0e-4, 1.0e-3, 3.0e-3, 1.0e-2]
+  - ArmijoBacktracking
+  - StrongWolfe
+  - SteepestDescent
+base_config:
+  max_iter: 2000
+  alpha_init: 1.0
+  c1: 1.0e-4
+  c2: 0.9
+  rho: 0.5
+  line_search_tol: 1.0e-8
+  line_search_max_iter: 100
+stopping_tolerances: [1.0e-1, 1.0e-2, 1.0e-3, 1.0e-4, 1.0e-5, 1.0e-6, 1.0e-7, 1.0e-8]
+parallel: false
+output_dir: outputs/lab2
+plots:
+  contours: true
+  convergence: true

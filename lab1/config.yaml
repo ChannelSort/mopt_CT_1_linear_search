@@ -1,0 +1,24 @@
+functions:
+  - GoodUnimodalFunction
+  - PlateauAsymmetricUnimodalFunction
+  - SecondSpecialUnimodalFunction
+  - MultimodalRastrigin
+optimizers:
+  - PassiveSearch
+  - BrentWrapper
+  - Dichotomy
+  - GoldenSection
+  - Fibonacci
+  - Parabola
+base_config:
+  max_iter: 5000
+  max_evaluations: 1000000
+  delta: 1.0e-8
+stopping_tolerances: [1.0e-1, 1.0e-2, 1.0e-3, 1.0e-4, 1.0e-5, 1.0e-6, 1.0e-7, 1.0e-8]
+parallel: false
+output_dir: outputs/lab1
+plots:
+  interval_dynamics: true
+  multimodal_strategy:
+    reconnaissance_points: 200
+    active_optimizer: GoldenSection
