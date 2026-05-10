@@ -65,4 +65,3 @@ def test_plotting_smoke(tmp_path: Path) -> None:
     )
 
     assert paths["png"].exists()
-    assert paths["pdf"].exists()

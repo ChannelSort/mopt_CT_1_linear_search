@@ -87,11 +87,9 @@ def plot_contours_and_trajectories(
     plt.tight_layout()
     stem = basename or f"{func.name}_trajectories"
     png = output_dir / f"{stem}.png"
-    pdf = output_dir / f"{stem}.pdf"
     fig.savefig(png, dpi=300)
-    fig.savefig(pdf, dpi=300)
     plt.close(fig)
-    return {"png": png, "pdf": pdf}
+    return {"png": png}
 
 
 def plot_convergence(results: list[ExperimentRun], output_dir: Path, basename: str = "convergence", f_min: float = 0.0) -> dict[str, Path]:
@@ -119,11 +117,9 @@ def plot_convergence(results: list[ExperimentRun], output_dir: Path, basename: s
         axes[0].legend(fontsize=6)
     plt.tight_layout()
     png = output_dir / f"{basename}.png"
-    pdf = output_dir / f"{basename}.pdf"
     fig.savefig(png, dpi=300)
-    fig.savefig(pdf, dpi=300)
     plt.close(fig)
-    return {"png": png, "pdf": pdf}
+    return {"png": png}
 
 
 def plot_param_sensitivity(
@@ -154,8 +150,6 @@ def plot_param_sensitivity(
         sns.heatmap(pivot, annot=True, fmt=".3g", cmap="magma", ax=ax)
     plt.tight_layout()
     png = output_dir / f"{basename}.png"
-    pdf = output_dir / f"{basename}.pdf"
     fig.savefig(png, dpi=300)
-    fig.savefig(pdf, dpi=300)
     plt.close(fig)
-    return {"png": png, "pdf": pdf}
+    return {"png": png}

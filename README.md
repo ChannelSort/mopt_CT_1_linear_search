@@ -41,8 +41,8 @@ py -m venv .venv
 .\.venv\Scripts\python.exe lab3\run.py
 ```
 
-Результаты сохраняются в `outputs/lab*/`: CSV, JSON, таблицы LaTeX, графики
-PNG/PDF.
+Результаты сохраняются в `outputs/lab*/`: сводная таблица `summary.csv` и
+графики в подкаталоге `plots/` (только PNG).
 
 ## Проверки
 
