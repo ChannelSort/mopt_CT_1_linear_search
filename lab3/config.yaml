@@ -1,10 +1,18 @@
 functions:
   - name: WellConditionedQuadratic
     params: {x0: [-2.0, -2.0]}
+  - name: IllConditionedQuadratic
+    params: {x0: [-2.0, -2.0]}
   - name: Rosenbrock
     params: {x0: [-1.2, 1.0]}
+  - name: Ackley
+    params: {x0: [1.0, 1.0]}
   - name: Himmelblau
     params: {x0: [2.0, 2.0]}
+  - name: Rosenbrock
+    params: {x0: [-2.0, 2.0]}
+  - name: Himmelblau
+    params: {x0: [-2.0, 3.0]}
 optimizers:
   - name: Momentum
     param_grid:
@@ -39,9 +47,10 @@ base_config:
   max_iter: 1500
   tol_step: 1.0e-12
   epsilon: 1.0e-8
-stopping_tolerances: [1.0e-5]
+stopping_tolerances: [1.0e-8]
 parallel: false
 output_dir: outputs/lab3
 plots:
   heatmaps: true
   trajectories: true
+  trajectory_tolerance: 1.0e-8

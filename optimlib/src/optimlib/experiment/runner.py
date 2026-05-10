@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +28,7 @@ class ExperimentRun:
     tolerance: float
     params: dict[str, Any]
     result: OptimizationResult | None
+    function_params: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
 
 
@@ -43,10 +44,25 @@ def _run_single(
         func.reset_count()
         optimizer = GLOBAL_REGISTRY.get_optimizer(optimizer_spec.name, **optimizer_spec.params)
         result = optimizer.minimize(func, optimizer_config)
-        return ExperimentRun(function_config.name, optimizer_spec.name, optimizer_config.tol, params, result)
+        return ExperimentRun(
+            function_config.name,
+            optimizer_spec.name,
+            optimizer_config.tol,
+            params,
+            result,
+            dict(function_config.params),
+        )
     except Exception as exc:
         LOGGER.debug("Experiment combination failed.", exc_info=True)
-        return ExperimentRun(function_config.name, optimizer_spec.name, optimizer_config.tol, params, None, str(exc))
+        return ExperimentRun(
+            function_config.name,
+            optimizer_spec.name,
+            optimizer_config.tol,
+            params,
+            None,
+            dict(function_config.params),
+            str(exc),
+        )
 
 
 class OptimizationExperiment:
@@ -79,7 +95,16 @@ class OptimizationExperiment:
                 futures = [executor.submit(_run_single, *task) for task in tasks]
                 for future in as_completed(futures):
                     runs.append(future.result())
-            self.runs = sorted(runs, key=lambda item: (item.function_name, item.optimizer_name, item.tolerance, str(item.params)))
+            self.runs = sorted(
+                runs,
+                key=lambda item: (
+                    item.function_name,
+                    str(item.function_params),
+                    item.optimizer_name,
+                    item.tolerance,
+                    str(item.params),
+                ),
+            )
         else:
             self.runs = [_run_single(*task) for task in tasks]
         self.save_tables()
@@ -92,6 +117,7 @@ class OptimizationExperiment:
             result = run.result
             row = {
                 "function": run.function_name,
+                "function_params": run.function_params,
                 "optimizer": run.optimizer_name,
                 "tolerance": run.tolerance,
                 "params": run.params,

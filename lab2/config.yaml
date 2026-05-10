@@ -1,14 +1,29 @@
 functions:
   - WellConditionedQuadratic
   - IllConditionedQuadratic
-  - Rosenbrock
-  - Ackley
-  - Himmelblau
+  - name: Rosenbrock
+    params: {x0: [-1.2, 1.0]}
+  - name: Rosenbrock
+    params: {x0: [-2.0, 2.0]}
+  - name: Rosenbrock
+    params: {x0: [0.5, 0.5]}
+  - name: Ackley
+    params: {x0: [1.0, 1.0]}
+  - name: Ackley
+    params: {x0: [-2.0, -2.0]}
+  - name: Ackley
+    params: {x0: [2.0, -2.0]}
+  - name: Himmelblau
+    params: {x0: [2.0, 2.0]}
+  - name: Himmelblau
+    params: {x0: [-2.0, -2.0]}
+  - name: Himmelblau
+    params: {x0: [4.0, 4.0]}
 optimizers:
   - name: ConstantStepGD
     param_grid:
       values:
-        alpha: [1.0e-4, 3.0e-4, 1.0e-3, 3.0e-3, 1.0e-2]
+        alpha: [1.0e-4, 3.0e-4, 1.0e-3, 3.0e-3, 1.0e-2, 1.0e-1]
   - ArmijoBacktracking
   - StrongWolfe
   - SteepestDescent
@@ -26,3 +41,4 @@ output_dir: outputs/lab2
 plots:
   contours: true
   convergence: true
+  trajectory_tolerance: 1.0e-8
